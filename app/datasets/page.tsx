@@ -1,7 +1,7 @@
 import { Suspense } from "react"
-import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
-import { DatasetsListing } from "@/components/datasets-listing"
+import { Header } from "@/components/layout/header"
+import { Footer } from "@/components/layout/footer"
+import { DatasetsListing } from "@/components/datasets/datasets-listing"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {

@@ -259,6 +259,39 @@ export const recentDatasets = [
   },
 ]
 
+export const topContributors = [
+  {
+    name: "Engr. Liza Santos",
+    department: "PGO Data & Analytics",
+    contributions: 42,
+    recent: "Road Network Update",
+  },
+  {
+    name: "Mark Dizon",
+    department: "PDRRMO GIS",
+    contributions: 33,
+    recent: "Flood Hazard Layers",
+  },
+  {
+    name: "Dr. Arlene Cruz",
+    department: "Provincial Health Office",
+    contributions: 27,
+    recent: "RHU Facilities 2025",
+  },
+  {
+    name: "Joyce Ramirez",
+    department: "DepEd Tarlac",
+    contributions: 21,
+    recent: "Schools Directory 2024",
+  },
+  {
+    name: "Carlo Manalang",
+    department: "DA Region III",
+    contributions: 18,
+    recent: "Rice Production Stats",
+  },
+]
+
 export const allDatasets = [
   {
     id: "1",

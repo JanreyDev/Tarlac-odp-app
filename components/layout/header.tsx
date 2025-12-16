@@ -14,8 +14,8 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <Database className="h-5 w-5 text-primary-foreground" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg">
+            <img src="/logo/tarlac-seal.png" alt="Tarlac Seal" />
           </div>  
           <div className="hidden sm:block">
             <p className="text-sm font-semibold text-foreground">Tarlac Open Data Portal</p>
@@ -48,6 +48,11 @@ export function Header() {
           <Link href="/contribute">
             <Button variant="ghost" className="text-sm">
               Contribute
+            </Button>
+          </Link>
+          <Link href="/login">
+            <Button variant="default" className="text-sm">
+              Login
             </Button>
           </Link>
           <DropdownMenu>
@@ -97,6 +102,9 @@ export function Header() {
             </Link>
             <Link href="/contribute" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
               Contribute
+            </Link>
+            <Link href="/login" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+              Login
             </Link>
             <Link href="/api-docs" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
               Developer API

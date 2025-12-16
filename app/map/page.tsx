@@ -1,13 +1,13 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import MapWrapper from "@/components/map/map-wrapper"
+import MapWrapper from "@/components/maps/map/map-wrapper"
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Header } from "@/components/header"
+import { Header } from "@/components/layout/header"
 
 // Import mock GeoJSON data
 import {

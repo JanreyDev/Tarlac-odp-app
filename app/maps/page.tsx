@@ -1,5 +1,5 @@
-import { InteractiveMap } from "@/components/interactive-map"
-import { Header } from "@/components/header"
+import { InteractiveMap } from "@/components/maps/interactive-map"
+import { Header } from "@/components/layout/header"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {

@@ -1,6 +1,6 @@
-import { Header } from "@/components/header"
-import { Footer } from "@/components/footer"
-import { CategoriesGrid } from "@/components/categories-grid"
+import { Header } from "@/components/layout/header"
+import { Footer } from "@/components/layout/footer"
+import { CategoriesGrid } from "@/components/datasets/categories-grid"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {

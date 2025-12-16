@@ -20,18 +20,17 @@ export function HeroSection() {
   }
 
   return (
-    <section className="relative overflow-hidden bg-primary px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <defs>
-            <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
-              <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-          <rect width="100" height="100" fill="url(#grid)" />
-        </svg>
-      </div>
+    <section
+      className="relative overflow-hidden px-4 py-16 sm:px-6 sm:py-24 lg:px-8"
+      style={{
+        backgroundImage: `url('/tarlac_capitol.jpg')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      {/* Dark overlay for readability */}
+      <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
 
       <div className="relative mx-auto max-w-4xl text-center">
         <h1 className="text-balance text-4xl font-bold tracking-tight text-primary-foreground sm:text-5xl lg:text-6xl">

@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { DatasetCard } from "@/components/dataset-card"
+import { DatasetCard } from "@/components/datasets/dataset-card"
 import { recentDatasets } from "@/lib/data"
 
 export function RecentDatasetsSection() {
