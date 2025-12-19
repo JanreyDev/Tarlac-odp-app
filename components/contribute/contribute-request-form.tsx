@@ -10,11 +10,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { submitContribution } from "@/lib/api"
 
 const requestTypes = [
-  { value: "Submit Dataset", label: "Submit Dataset" },
-  { value: "Request Dataset", label: "Request Dataset" },
-  { value: "Report Issue", label: "Report Issue" },
-  { value: "General Feedback", label: "General Feedback" },
+  { value: "submit_dataset", label: "Submit Dataset" },
+  { value: "request_dataset", label: "Request Dataset" },
+  { value: "report_issue", label: "Report Issue" },
+  { value: "feedback", label: "General Feedback" },
 ]
+
 
 type FormState = {
   name: string

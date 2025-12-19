@@ -5,6 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Menu, X, ChevronDown, Database, Code, MapPin } from "lucide-react"
+import { AuthButton } from "../auth/auth-button"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -50,11 +51,7 @@ export function Header() {
               Contribute
             </Button>
           </Link>
-          <Link href="/login">
-            <Button variant="default" className="text-sm">
-              Login
-            </Button>
-          </Link>
+          <AuthButton></AuthButton>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-sm">
