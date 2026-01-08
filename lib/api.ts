@@ -87,6 +87,31 @@ export async function submitContribution(payload: ContributePayload | FormData, 
   })
 }
 
+// 🔄 Update contribution status (Admin only)
+export type UpdateContributionPayload = {
+  status?: 'pending' | 'approved' | 'rejected'
+  categories?: number[]
+  tags?: number[]
+}
+
+export async function updateContribution(id: string | number, payload: UpdateContributionPayload, token?: string) {
+  return apiFetch<unknown>({
+    path: `/contributes/${id}`,
+    method: "PUT",
+    body: JSON.stringify(payload),
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+}
+
+// 📊 Get single contribution
+export async function getContribution(id: string | number, token?: string) {
+  return apiFetch<unknown>({
+    path: `/contributes/${id}`,
+    method: "GET",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
+}
+
 // 🏆 Ranking
 export type RankingItem = {
   name: string
@@ -105,9 +130,84 @@ type LaravelRankingItem = {
   organization?: string
 }
 
+
+// Fetch all categories
+export async function fetchCategories() {
+  return apiFetch<Array<{ id: number; name: string }>>({
+    path: "/categories",
+    method: "GET",
+  })
+}
+
+// Fetch all tags
+export async function fetchTags() {
+  return apiFetch<Array<{ id: number; name: string }>>({
+    path: "/tags",
+    method: "GET",
+  })
+}
+
+// Add this function to your api.ts file
+
+export type ApprovedContribution = {
+  id: number
+  title: string
+  organization: string
+  request_type: string
+  message: string
+  file_path: string | null
+  status: string
+  created_at: string
+  updated_at: string
+  user: {
+    id: number
+    name: string
+    email: string
+  }
+  categories: Array<{
+    id: number
+    name: string
+  }>
+  tags: Array<{
+    id: number
+    name: string
+  }>
+}
+
+export type PaginatedResponse<T> = {
+  data: T[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
+export async function fetchApprovedContributions(page: number = 1): Promise<PaginatedResponse<ApprovedContribution>> {
+  return apiFetch<PaginatedResponse<ApprovedContribution>>({
+    path: `/contributes/approved?page=${page}`,
+    method: "GET",
+  })
+}
+
+// Add this function to fetch a single APPROVED contribution (public)
+export async function fetchSingleApprovedContribution(id: string | number): Promise<ApprovedContribution> {
+  return apiFetch<ApprovedContribution>({
+    path: `/contributes/approved/${id}`,
+    method: "GET",
+  })
+}
+
+// Add this function to fetch a single contribution
+export async function fetchSingleContribution(id: string | number): Promise<ApprovedContribution> {
+  return apiFetch<ApprovedContribution>({
+    path: `/contributes/${id}`,
+    method: "GET",
+  })
+}
+
 export async function fetchContributorRanking(): Promise<RankingItem[]> {
   const data = await apiFetch<LaravelRankingItem[]>({
-    path: "/contributes/ranking",
+    path: "/contributes/leaderboard",
     method: "GET",
   })
 

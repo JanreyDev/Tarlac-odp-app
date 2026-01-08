@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { LogIn, Send, Upload, X, FileText } from "lucide-react"
+import { LogIn, Send, Upload, X, FileText, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,8 +17,7 @@ const requestTypes = [
 ]
 
 type FormState = {
-  name: string
-  email: string
+  title: string
   organization: string
   requestType: string
   message: string
@@ -26,8 +25,7 @@ type FormState = {
 }
 
 const initialState: FormState = {
-  name: "",
-  email: "",
+  title: "",
   organization: "",
   requestType: "",
   message: "",
@@ -40,10 +38,22 @@ export function ContributeRequestForm() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [token, setToken] = useState<string | null>(null)
+  const [userData, setUserData] = useState<{ name?: string; email?: string } | null>(null)
 
   useEffect(() => {
-    const stored = typeof window !== "undefined" ? window.localStorage.getItem("authToken") : null
-    if (stored) setToken(stored)
+    if (typeof window !== "undefined") {
+      const storedToken = window.localStorage.getItem("authToken")
+      const storedUser = window.localStorage.getItem("userData")
+      
+      if (storedToken) setToken(storedToken)
+      if (storedUser) {
+        try {
+          setUserData(JSON.parse(storedUser))
+        } catch (e) {
+          console.error("Error parsing user data:", e)
+        }
+      }
+    }
   }, [])
 
   const canSubmit = useMemo(() => Boolean(token), [token])
@@ -58,44 +68,26 @@ export function ContributeRequestForm() {
     const file = event.target.files?.[0] || null
     
     if (file) {
-      // Validate file size (5MB)
-      const maxSize = 5 * 1024 * 1024 // 5MB in bytes
+      // Validate file size (10MB to match Laravel validation)
+      const maxSize = 10 * 1024 * 1024 // 10MB in bytes
       if (file.size > maxSize) {
-        setError("File size must be less than 5MB")
+        setError("File size must be less than 10MB")
         event.target.value = "" // Reset input
         return
       }
       
-      // Validate file type
+      // Validate file type (match Laravel validation: xlsx, xls, csv)
       const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'text/plain',
-        'text/csv',
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/bmp',
-        'image/svg+xml',
-        'image/webp',
-        'application/zip',
-        'application/x-rar-compressed',
-        'application/x-7z-compressed',
-        'application/x-tar',
-        'application/gzip',
-        'application/json',
-        'application/xml',
-        'text/html',
-        'text/markdown',
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'text/csv', // .csv
       ]
       
-      if (!allowedTypes.includes(file.type)) {
-        setError("Invalid file type. Please upload a supported document, image, or archive file.")
+      const allowedExtensions = ['xls', 'xlsx', 'csv']
+      const fileExtension = file.name.split('.').pop()?.toLowerCase()
+      
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension || '')) {
+        setError("Invalid file type. Only Excel (.xlsx, .xls) and CSV (.csv) files are allowed.")
         event.target.value = "" // Reset input
         return
       }
@@ -125,14 +117,23 @@ export function ContributeRequestForm() {
     event.preventDefault()
     if (!canSubmit) return
 
-    const { organization, requestType, message, file } = form
-    if (!organization.trim() || !requestType.trim() || !message.trim()) {
-      setError("Organization, request type, and message are required.")
+    const { title, organization, requestType, message, file } = form
+    
+    // Validate required fields
+    if (!title.trim()) {
+      setError("Title is required.")
       return
     }
-
-    if (!file) {
-      setError("Please upload a file.")
+    if (!organization.trim()) {
+      setError("Organization is required.")
+      return
+    }
+    if (!requestType.trim()) {
+      setError("Request type is required.")
+      return
+    }
+    if (!message.trim()) {
+      setError("Message is required.")
       return
     }
 
@@ -143,27 +144,29 @@ export function ContributeRequestForm() {
     try {
       // Create FormData for file upload
       const formData = new FormData()
+      formData.append('title', title.trim())
       formData.append('organization', organization.trim())
       formData.append('request_type', requestType.trim())
       formData.append('message', message.trim())
       
-      if (form.name.trim()) {
-        formData.append('name', form.name.trim())
+      // Add file if provided
+      if (file) {
+        formData.append('file', file)
       }
-      if (form.email.trim()) {
-        formData.append('email', form.email.trim())
-      }
-      
-      formData.append('file', file)
 
       await submitContribution(formData, token || undefined)
       
-      setSuccess("Contribution submitted successfully. Thank you!")
+      setSuccess("Contribution submitted successfully! Your submission is pending admin review.")
       setForm(initialState)
       
       // Reset file input
       const fileInput = document.getElementById('file') as HTMLInputElement
       if (fileInput) fileInput.value = ""
+      
+      // Auto-hide success message after 5 seconds
+      setTimeout(() => {
+        setSuccess(null)
+      }, 5000)
       
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submission failed. Please try again."
@@ -175,35 +178,38 @@ export function ContributeRequestForm() {
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
-          <Input 
-            id="name" 
-            placeholder="Your full name" 
-            value={form.name} 
-            onChange={handleChange("name")}
-            disabled={!canSubmit}
-          />
+      {/* Show logged in user info */}
+      {userData && canSubmit && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-green-800">
+            <CheckCircle className="h-4 w-4" />
+            <span>
+              Signed in as <strong>{userData.name || userData.email}</strong>
+            </span>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input 
-            id="email" 
-            type="email" 
-            placeholder="you@example.com" 
-            value={form.email} 
-            onChange={handleChange("email")}
-            disabled={!canSubmit}
-          />
-        </div>
+      )}
+      
+      <div className="space-y-2">
+        <Label htmlFor="title">Dataset/Request Title *</Label>
+        <Input 
+          id="title" 
+          placeholder="e.g., Monthly Tourism Statistics 2024" 
+          value={form.title} 
+          onChange={handleChange("title")}
+          disabled={!canSubmit}
+          required
+        />
+        <p className="text-xs text-muted-foreground">
+          Provide a clear, descriptive title for your submission
+        </p>
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="organization">Organization *</Label>
+        <Label htmlFor="organization">Organization/Agency *</Label>
         <Input 
           id="organization" 
-          placeholder="Your organization or agency" 
+          placeholder="e.g., Provincial Tourism Office" 
           value={form.organization} 
           onChange={handleChange("organization")}
           disabled={!canSubmit}
@@ -215,7 +221,7 @@ export function ContributeRequestForm() {
         <Label htmlFor="type">Request Type *</Label>
         <select
           id="type"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           value={form.requestType}
           onChange={handleChange("requestType")}
           disabled={!canSubmit}
@@ -231,7 +237,7 @@ export function ContributeRequestForm() {
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="message">Message *</Label>
+        <Label htmlFor="message">Message/Description *</Label>
         <Textarea
           id="message"
           placeholder="Describe your request or submission in detail..."
@@ -241,12 +247,15 @@ export function ContributeRequestForm() {
           disabled={!canSubmit}
           required
         />
+        <p className="text-xs text-muted-foreground">
+          Include any relevant details, time periods, or special requirements
+        </p>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="file">
-          Upload File *
-          <span className="ml-2 text-xs text-muted-foreground">(Max 5MB)</span>
+          Upload File (Optional)
+          <span className="ml-2 text-xs text-muted-foreground">(Max 10MB)</span>
         </Label>
         
         {!form.file ? (
@@ -257,12 +266,11 @@ export function ContributeRequestForm() {
               onChange={handleFileChange}
               disabled={!canSubmit}
               className="cursor-pointer file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary/90"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.bmp,.svg,.webp,.zip,.rar,.7z,.tar,.gz,.json,.xml,.html,.htm,.md"
-              required
+              accept=".xlsx,.xls,.csv"
             />
             <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <Upload className="h-4 w-4" />
-              <span>Supported: Documents, Images, Archives (PDF, DOC, XLS, PPT, CSV, JPG, PNG, ZIP, etc.)</span>
+              <span>Supported formats: Excel (.xlsx, .xls) and CSV (.csv)</span>
             </div>
           </div>
         ) : (
@@ -321,14 +329,17 @@ export function ContributeRequestForm() {
       </Button>
 
       {!canSubmit ? (
-        <div className="flex flex-col gap-2 text-sm text-muted-foreground">
-          <div className="rounded-full bg-secondary/40 px-3 py-2 text-xs font-medium text-foreground">
-            Not signed in
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex flex-col gap-2 text-sm">
+            <span className="font-semibold text-amber-900">Authentication Required</span>
+            <span className="text-amber-800">
+              You must be signed in to submit a contribution request.
+            </span>
+            <Link href="/login" className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-primary hover:underline">
+              <LogIn className="h-4 w-4" />
+              Go to login page
+            </Link>
           </div>
-          <Link href="/login" className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-primary hover:underline">
-            <LogIn className="h-4 w-4" />
-            Go to login
-          </Link>
         </div>
       ) : null}
     </form>

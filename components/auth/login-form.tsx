@@ -36,14 +36,27 @@ export function LoginForm() {
     try {
       const response = await loginRequest({ email, password, remember: rememberMe })
       const token = response?.token || (response as { access_token?: string })?.access_token
+      const user = response?.user as { role?: string; name?: string } | undefined
 
       if (token && typeof window !== "undefined") {
+        // Store token
         window.localStorage.setItem("authToken", token)
+        
+        // Store user data
+        if (user) {
+          window.localStorage.setItem("userData", JSON.stringify(user))
+        }
       }
 
-      setSuccess(response?.message || "Login successful. Redirecting to contribute page...")
+      // Determine redirect based on role
+      const userRole = user?.role || 'staff'
+      const redirectPath = userRole === 'admin' ? '/dashboard' : '/contribute'
+      const roleLabel = userRole === 'admin' ? 'admin dashboard' : 'contribute page'
+
+      setSuccess(`Login successful. Redirecting to ${roleLabel}...`)
+      
       window.setTimeout(() => {
-        router.push("/contribute")
+        router.push(redirectPath)
       }, 700)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed. Please try again."
