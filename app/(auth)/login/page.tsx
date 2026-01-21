@@ -1,14 +1,12 @@
-import type { Metadata } from "next"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { CheckCircle2, ShieldCheck, Sparkles } from "lucide-react"
 import { Footer } from "@/components/layout/footer"
 import { Header } from "@/components/layout/header"
 import { LoginForm } from "@/components/auth/login-form"
-
-export const metadata: Metadata = {
-  title: "Login | Tarlac Open Data Portal",
-  description: "Access the Tarlac Open Data Portal with your issued credentials to manage and explore provincial datasets.",
-}
 
 const highlights = [
   {
@@ -30,6 +28,28 @@ const highlights = [
 ]
 
 export default function LoginPage() {
+  const router = useRouter()
+  const [isChecking, setIsChecking] = useState(true)
+
+  useEffect(() => {
+    // Check if user is already logged in
+    if (typeof window !== "undefined") {
+      const token = window.localStorage.getItem("authToken")
+      if (token) {
+        // Redirect to home page if already logged in
+        router.push("/")
+      } else {
+        // Not logged in, show the login page
+        setIsChecking(false)
+      }
+    }
+  }, [router])
+
+  // Show nothing while checking auth status
+  if (isChecking) {
+    return null
+  }
+
   return (
     <div className="relative isolate flex min-h-screen flex-col bg-linear-to-br from-background via-secondary/30 to-background">
       <Header />

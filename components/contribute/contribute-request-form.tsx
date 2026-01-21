@@ -180,8 +180,8 @@ export function ContributeRequestForm() {
     <form className="space-y-6" onSubmit={handleSubmit}>
       {/* Show logged in user info */}
       {userData && canSubmit && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-green-800">
+        <div className="rounded-lg border border-green-300 bg-green-100 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-green-900">
             <CheckCircle className="h-4 w-4" />
             <span>
               Signed in as <strong>{userData.name || userData.email}</strong>
@@ -190,52 +190,105 @@ export function ContributeRequestForm() {
         </div>
       )}
       
-      <div className="space-y-2">
-        <Label htmlFor="title">Dataset/Request Title *</Label>
-        <Input 
-          id="title" 
-          placeholder="e.g., Monthly Tourism Statistics 2024" 
-          value={form.title} 
-          onChange={handleChange("title")}
-          disabled={!canSubmit}
-          required
-        />
-        <p className="text-xs text-muted-foreground">
-          Provide a clear, descriptive title for your submission
-        </p>
+      {/* Two Column Layout */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="title">Dataset/Request Title *</Label>
+          <Input 
+            id="title" 
+            placeholder="e.g., Monthly Tourism Statistics 2024" 
+            value={form.title} 
+            onChange={handleChange("title")}
+            disabled={!canSubmit}
+            required
+          />
+          <p className="text-xs text-muted-foreground">
+            Provide a clear, descriptive title for your submission
+          </p>
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="organization">Organization/Agency *</Label>
+          <Input 
+            id="organization" 
+            placeholder="e.g., Provincial Tourism Office" 
+            value={form.organization} 
+            onChange={handleChange("organization")}
+            disabled={!canSubmit}
+            required
+          />
+        </div>
+      </div>
+
+      {/* Two Column Layout - Request Type and File Upload */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="type">Request Type *</Label>
+          <select
+            id="type"
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            value={form.requestType}
+            onChange={handleChange("requestType")}
+            disabled={!canSubmit}
+            required
+          >
+            <option value="">Select a type</option>
+            {requestTypes.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="file">
+            Upload File (Optional)
+            <span className="ml-2 text-xs text-muted-foreground">(Max 10MB)</span>
+          </Label>
+          
+          {!form.file ? (
+            <div className="relative">
+              <Input
+                id="file"
+                type="file"
+                onChange={handleFileChange}
+                disabled={!canSubmit}
+                className="cursor-pointer file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary/90"
+                accept=".xlsx,.xls,.csv"
+              />
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <Upload className="h-4 w-4" />
+                <span>Excel (.xlsx, .xls) and CSV (.csv)</span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between rounded-md border border-input bg-background p-3">
+              <div className="flex items-center gap-3">
+                <div className="rounded-md bg-primary/10 p-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-foreground">{form.file.name}</span>
+                  <span className="text-xs text-muted-foreground">{formatFileSize(form.file.size)}</span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={removeFile}
+                disabled={!canSubmit}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
       
-      <div className="space-y-2">
-        <Label htmlFor="organization">Organization/Agency *</Label>
-        <Input 
-          id="organization" 
-          placeholder="e.g., Provincial Tourism Office" 
-          value={form.organization} 
-          onChange={handleChange("organization")}
-          disabled={!canSubmit}
-          required
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="type">Request Type *</Label>
-        <select
-          id="type"
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          value={form.requestType}
-          onChange={handleChange("requestType")}
-          disabled={!canSubmit}
-          required
-        >
-          <option value="">Select a type</option>
-          {requestTypes.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      
+      {/* Message at the bottom - Full Width */}
       <div className="space-y-2">
         <Label htmlFor="message">Message/Description *</Label>
         <Textarea
@@ -250,52 +303,6 @@ export function ContributeRequestForm() {
         <p className="text-xs text-muted-foreground">
           Include any relevant details, time periods, or special requirements
         </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="file">
-          Upload File (Optional)
-          <span className="ml-2 text-xs text-muted-foreground">(Max 10MB)</span>
-        </Label>
-        
-        {!form.file ? (
-          <div className="relative">
-            <Input
-              id="file"
-              type="file"
-              onChange={handleFileChange}
-              disabled={!canSubmit}
-              className="cursor-pointer file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary/90"
-              accept=".xlsx,.xls,.csv"
-            />
-            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-              <Upload className="h-4 w-4" />
-              <span>Supported formats: Excel (.xlsx, .xls) and CSV (.csv)</span>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between rounded-md border border-input bg-background p-3">
-            <div className="flex items-center gap-3">
-              <div className="rounded-md bg-primary/10 p-2">
-                <FileText className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-foreground">{form.file.name}</span>
-                <span className="text-xs text-muted-foreground">{formatFileSize(form.file.size)}</span>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={removeFile}
-              disabled={!canSubmit}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
       </div>
 
       {error ? (

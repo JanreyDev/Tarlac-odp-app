@@ -1,20 +1,26 @@
+"use client"
+
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, MessageSquare, Bug, Lightbulb, CheckCircle, LogIn, Trophy, ShieldCheck, Phone } from "lucide-react"
-import type { Metadata } from "next"
 import Link from "next/link"
 import { topContributors } from "@/lib/data"
 import { ContributeRequestForm } from "@/components/contribute/contribute-request-form"
 import { ContributorLeaderboard } from "@/components/contribute/contributor-leaderboard"
-
-export const metadata: Metadata = {
-  title: "Contribute | Tarlac Open Data Portal",
-  description: "Help improve the Tarlac Open Data Portal. Submit datasets, report issues, or suggest improvements.",
-}
+import { useEffect, useState } from "react"
 
 export default function ContributePage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const token = window.localStorage.getItem("authToken")
+      setIsLoggedIn(Boolean(token))
+    }
+  }, [])
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
@@ -29,21 +35,22 @@ export default function ContributePage() {
             </div>
             <h1 className="mt-4 text-3xl font-bold text-primary-foreground sm:text-4xl">Contribute to Open Data</h1>
             <p className="mt-3 max-w-3xl text-base text-primary-foreground/85 sm:text-lg">
-              Help us build a comprehensive open data resource for Tarlac Province. Sign in and make sure your profile
-              has a contact number so we can reach you for validation.
+              Help us build a comprehensive open data resource for Tarlac Province. {!isLoggedIn && "Sign in and make sure your profile has a contact number so we can reach you for validation."}
             </p>
-            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-              <Link href="/login">
-                <Button size="lg" className="gap-2 bg-primary-foreground text-secondary-foreground hover:bg-primary-foreground/90">
-                  <LogIn className="h-4 w-4" />
-                  Sign in to contribute
-                </Button>
-              </Link>
-              <div className="inline-flex items-center gap-2 rounded-full bg-black/15 px-3 py-2 text-xs font-medium text-primary-foreground/90 backdrop-blur">
-                <Phone className="h-4 w-4" />
-                Login + contact number required
+            {!isLoggedIn && (
+              <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+                <Link href="/login">
+                  <Button size="lg" className="gap-2 bg-primary-foreground text-secondary-foreground hover:bg-primary-foreground/90">
+                    <LogIn className="h-4 w-4" />
+                    Sign in to contribute
+                  </Button>
+                </Link>
+                <div className="inline-flex items-center gap-2 rounded-full bg-black/15 px-3 py-2 text-xs font-medium text-primary-foreground/90 backdrop-blur">
+                  <Phone className="h-4 w-4" />
+                  Login + contact number required
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </section>
 
@@ -109,23 +116,27 @@ export default function ContributePage() {
         </section>
 
         {/* Contact Form */}
-        <section className="px-4 py-16 sm:px-6 lg:px-8">
+        <section className="bg-primary/5 px-4 py-16 sm:px-6 lg:px-8">
           <div className="mx-auto flex max-w-5xl flex-col gap-8">
             <div className="w-full">
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     Submit a Request
-                    <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
-                      Auth + contact required
-                    </span>
+                    {!isLoggedIn && (
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">
+                        Auth + contact required
+                      </span>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    You must be signed in and have a contact number saved in your profile before submitting. Please
-                    update your profile after login.
-                  </div>
+                  {!isLoggedIn && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      You must be signed in and have a contact number saved in your profile before submitting. Please
+                      update your profile after login.
+                    </div>
+                  )}
                   <ContributeRequestForm />
                 </CardContent>
               </Card>
@@ -134,7 +145,7 @@ export default function ContributePage() {
         </section>
 
         {/* Leaderboard */}
-        <section className="px-4 pb-16 sm:px-6 lg:px-8">
+        <section className="px-4 pb-10 pt-10 sm:px-6 lg:px-8">
           <div className="mx-auto flex max-w-5xl flex-col gap-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Trophy className="h-5 w-5 text-primary" />
