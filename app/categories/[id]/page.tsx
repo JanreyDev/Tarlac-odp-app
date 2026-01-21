@@ -1,10 +1,12 @@
+"use client"
+
 import type React from "react"
+import { useState, useEffect } from "react"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
-import { DatasetCard } from "@/components/datasets/dataset-card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { categories, recentDatasets } from "@/lib/data"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   GraduationCap,
   Users,
@@ -32,9 +34,14 @@ import {
   ArrowLeft,
   Download,
   Filter,
+  Loader2,
+  Tag,
+  Calendar,
+  ArrowRight,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { fetchCategories, fetchApprovedContributions, type Category, type ApprovedContribution } from "@/lib/api"
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   GraduationCap,
@@ -62,47 +69,92 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Database,
 }
 
-export async function generateStaticParams() {
-  return categories.map((category) => ({
-    id: category.id,
-  }))
-}
+export default function CategoryPage({ params }: { params: { slug: string } }) {
+  const [category, setCategory] = useState<Category | null>(null)
+  const [datasets, setDatasets] = useState<ApprovedContribution[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const category = categories.find((c) => c.id === id)
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
 
-  if (!category) {
-    return {
-      title: "Category Not Found | Tarlac Open Data Portal",
+        // Fetch categories to find the current one
+        const categories = await fetchCategories()
+        const currentCategory = categories.find((c) => c.slug === params.slug)
+
+        if (!currentCategory) {
+          setError("Category not found")
+          setLoading(false)
+          return
+        }
+
+        setCategory(currentCategory)
+
+        // Fetch all approved contributions
+        const response = await fetchApprovedContributions(1)
+        
+        // Filter datasets by category
+        const categoryDatasets = response.data.filter((dataset) =>
+          dataset.categories.some((cat) => cat.id === currentCategory.id)
+        )
+
+        setDatasets(categoryDatasets)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load category data")
+        console.error("Error loading category:", err)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    loadData()
+  }, [params.slug])
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
   }
 
-  return {
-    title: `${category.name} | Tarlac Open Data Portal`,
-    description: category.description,
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <main className="flex-1">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Loading category...</span>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    )
   }
-}
 
-export default async function CategoryPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const category = categories.find((c) => c.id === id)
-
-  if (!category) {
-    notFound()
+  if (error || !category) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Header />
+        <main className="flex-1">
+          <section className="px-4 py-12 sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-7xl text-center">
+              <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-4 text-lg font-medium text-foreground">Category Not Found</h3>
+              <p className="mt-2 text-muted-foreground">{error || "The category you're looking for doesn't exist."}</p>
+              <Link href="/categories">
+                <Button className="mt-4">Back to Categories</Button>
+              </Link>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    )
   }
 
   const Icon = iconMap[category.icon] || Database
-
-  // Filter datasets for this category (simulated)
-  const categoryDatasets = recentDatasets.filter(
-    (d) =>
-      d.category.toLowerCase() === category.name.split(" ")[0].toLowerCase() ||
-      d.category.toLowerCase().includes(category.id),
-  )
-
-  // If no matching datasets, show all as example
-  const displayDatasets = categoryDatasets.length > 0 ? categoryDatasets : recentDatasets.slice(0, 3)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -131,7 +183,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ id: s
                 <p className="mt-2 text-lg text-primary-foreground/90">{category.description}</p>
                 <div className="mt-4 flex items-center gap-3">
                   <Badge className="bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30">
-                    {category.datasets} Datasets
+                    {category.datasets_count} {category.datasets_count === 1 ? 'Dataset' : 'Datasets'}
                   </Badge>
                 </div>
               </div>
@@ -156,13 +208,48 @@ export default async function CategoryPage({ params }: { params: Promise<{ id: s
               </div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {displayDatasets.map((dataset) => (
-                <DatasetCard key={dataset.id} {...dataset} />
-              ))}
-            </div>
+            {datasets.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {datasets.map((dataset) => (
+                  <Link key={dataset.id} href={`/datasets/${dataset.id}`}>
+                    <Card className="group h-full transition-all hover:border-primary/30 hover:shadow-md">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <h3 className="line-clamp-2 text-base font-semibold text-foreground group-hover:text-primary">
+                            {dataset.title}
+                          </h3>
+                          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                        </div>
+                        <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">{dataset.message}</p>
+                        
+                        <div className="mb-4 flex flex-wrap gap-2">
+                          <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary hover:bg-primary/20 text-xs">
+                            {dataset.organization}
+                          </Badge>
+                          {dataset.tags.slice(0, 2).map((tag) => (
+                            <Badge key={tag.id} variant="outline" className="gap-1 text-xs">
+                              <Tag className="h-3 w-3" />
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
 
-            {displayDatasets.length === 0 && (
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            {dataset.request_type}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(dataset.created_at)}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            ) : (
               <div className="py-12 text-center">
                 <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
                 <h3 className="mt-4 text-lg font-medium text-foreground">No datasets yet</h3>

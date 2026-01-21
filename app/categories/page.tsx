@@ -5,7 +5,7 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Categories | Tarlac Open Data Portal",
-  description: "Browse all 22 data categories including education, health, agriculture, infrastructure, and more.",
+  description: "Browse data categories including education, health, agriculture, infrastructure, and more from Tarlac Province.",
 }
 
 export default function CategoriesPage() {
@@ -18,7 +18,7 @@ export default function CategoriesPage() {
           <div className="mx-auto max-w-7xl text-center">
             <h1 className="text-3xl font-bold text-primary-foreground sm:text-4xl">Data Categories</h1>
             <p className="mt-3 text-lg text-primary-foreground/90">
-              Explore all 22 categories of public datasets from Tarlac Province
+              Explore all categories of public datasets from Tarlac Province
             </p>
           </div>
         </section>

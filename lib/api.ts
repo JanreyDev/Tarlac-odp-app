@@ -14,6 +14,17 @@ export type LoginResponse = {
   [key: string]: unknown
 }
 
+export interface FileData {
+  success: boolean
+  data: {
+    headers: string[]
+    rows: Record<string, any>[]
+  }
+  file_type: string
+  headers: string[]
+  rows: Record<string, any>[]
+}
+
 type ApiFetchOptions = RequestInit & { path: string }
 
 type ApiError = Error & { status?: number }
@@ -48,7 +59,7 @@ async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
   return data as T
 }
 
-// 🔑 Auth
+// 🔐 Auth
 export async function loginRequest(payload: LoginPayload): Promise<LoginResponse> {
   return apiFetch<LoginResponse>({
     path: "/login",
@@ -87,7 +98,7 @@ export async function submitContribution(payload: ContributePayload | FormData, 
   })
 }
 
-// 🔄 Update contribution status (Admin only)
+// 📄 Update contribution status (Admin only)
 export type UpdateContributionPayload = {
   status?: 'pending' | 'approved' | 'rejected'
   categories?: number[]
@@ -130,12 +141,48 @@ type LaravelRankingItem = {
   organization?: string
 }
 
+// Categories
+export type Category = {
+  id: number
+  name: string
+  slug: string
+  datasets_count: number
+  description: string
+  icon: string
+}
 
-// Fetch all categories
-export async function fetchCategories() {
-  return apiFetch<Array<{ id: number; name: string }>>({
+export async function fetchCategories(): Promise<Category[]> {
+  return apiFetch<Category[]>({
     path: "/categories",
     method: "GET",
+  })
+}
+
+export async function fetchCategoriesWithCounts(): Promise<Category[]> {
+  return apiFetch<Category[]>({
+    path: "/categories",
+    method: "GET",
+  })
+}
+
+// Create new category (Admin only)
+export type CreateCategoryPayload = {
+  name: string
+  icon: string
+  description?: string
+}
+
+export type CreateCategoryResponse = {
+  message: string
+  category: Category
+}
+
+export async function createCategory(payload: CreateCategoryPayload, token: string): Promise<CreateCategoryResponse> {
+  return apiFetch<CreateCategoryResponse>({
+    path: "/categories",
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: { Authorization: `Bearer ${token}` },
   })
 }
 
@@ -147,8 +194,7 @@ export async function fetchTags() {
   })
 }
 
-// Add this function to your api.ts file
-
+// Contributions
 export type ApprovedContribution = {
   id: number
   title: string
@@ -189,7 +235,6 @@ export async function fetchApprovedContributions(page: number = 1): Promise<Pagi
   })
 }
 
-// Add this function to fetch a single APPROVED contribution (public)
 export async function fetchSingleApprovedContribution(id: string | number): Promise<ApprovedContribution> {
   return apiFetch<ApprovedContribution>({
     path: `/contributes/approved/${id}`,
@@ -197,13 +242,23 @@ export async function fetchSingleApprovedContribution(id: string | number): Prom
   })
 }
 
-// Add this function to fetch a single contribution
 export async function fetchSingleContribution(id: string | number): Promise<ApprovedContribution> {
   return apiFetch<ApprovedContribution>({
     path: `/contributes/${id}`,
     method: "GET",
   })
 }
+
+
+
+export async function fetchFileData(id: string): Promise<FileData> {
+  return apiFetch<FileData>({
+    path: `/contributes/approved/${id}/data`,
+    method: "GET",
+  })
+}
+
+
 
 export async function fetchContributorRanking(): Promise<RankingItem[]> {
   const data = await apiFetch<LaravelRankingItem[]>({

@@ -5,8 +5,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { StatusBadge } from '@/components/dashboard/StatusBadge';
 import { DetailModal } from '@/components/dashboard/DetailModal';
+import { AddCategoryModal } from '@/components/dashboard/AddCategoryModal';
 import { Header } from '@/components/layout/header';
-import { Loader2, ShieldAlert, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Loader2, ShieldAlert, AlertCircle, CheckCircle2, X, Plus, FolderPlus } from 'lucide-react';
 import { fetchContributes, updateContribution } from '@/lib/api';
 
 type LaravelContribution = {
@@ -76,6 +77,7 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +245,10 @@ export default function DashboardPage() {
     setCurrentPage(page);
   };
 
+  const handleCategorySuccess = () => {
+    setSuccessMessage('Category created successfully! It will now appear in the categories list.');
+  };
+
   const statusCounts = {
     all: submissions.length,
     pending: submissions.filter(s => s.status === 'pending').length,
@@ -307,46 +313,57 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="mb-6 flex flex-wrap gap-2">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                statusFilter === 'all'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All ({statusCounts.all})
+            </button>
+            <button
+              onClick={() => setStatusFilter('pending')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                statusFilter === 'pending'
+                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Pending ({statusCounts.pending})
+            </button>
+            <button
+              onClick={() => setStatusFilter('approved')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                statusFilter === 'approved'
+                  ? 'bg-green-100 text-green-800 border border-green-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Approved ({statusCounts.approved})
+            </button>
+            <button
+              onClick={() => setStatusFilter('rejected')}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                statusFilter === 'rejected'
+                  ? 'bg-red-100 text-red-800 border border-red-300'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Rejected ({statusCounts.rejected})
+            </button>
+          </div>
+
+          {/* Add Category Button */}
           <button
-            onClick={() => setStatusFilter('all')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              statusFilter === 'all'
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all shadow-sm"
           >
-            All ({statusCounts.all})
-          </button>
-          <button
-            onClick={() => setStatusFilter('pending')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              statusFilter === 'pending'
-                ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Pending ({statusCounts.pending})
-          </button>
-          <button
-            onClick={() => setStatusFilter('approved')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              statusFilter === 'approved'
-                ? 'bg-green-100 text-green-800 border border-green-300'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Approved ({statusCounts.approved})
-          </button>
-          <button
-            onClick={() => setStatusFilter('rejected')}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              statusFilter === 'rejected'
-                ? 'bg-red-100 text-red-800 border border-red-300'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Rejected ({statusCounts.rejected})
+            <FolderPlus className="h-4 w-4" />
+            Add Category
           </button>
         </div>
 
@@ -497,6 +514,12 @@ export default function DashboardPage() {
           onUpdate={handleUpdate}
         />
       )}
+
+      <AddCategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSuccess={handleCategorySuccess}
+      />
     </div>
   );
 }

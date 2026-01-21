@@ -28,7 +28,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Separator } from "@/components/ui/separator"
 import { fetchApprovedContributions, type ApprovedContribution } from "@/lib/api"
+import { DatasetStatistics } from "@/components/datasets/dataset-statistics"
 
 const ITEMS_PER_PAGE = 10
 
@@ -216,6 +218,14 @@ export function DatasetsListing() {
   return (
     <section className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
+        {/* Statistics Section */}
+        <div className="mb-8">
+          <h2 className="mb-4 text-2xl font-bold text-foreground">Dataset Statistics</h2>
+          <DatasetStatistics datasets={datasets} />
+        </div>
+
+        <Separator className="my-8" />
+
         <div className="grid gap-8 lg:grid-cols-4">
           {/* Filters Sidebar */}
           <aside className="lg:col-span-1">
@@ -470,17 +480,17 @@ function DatasetListItem({ dataset, viewMode, formatDate }: DatasetListItemProps
           </CardHeader>
           <CardContent className="pt-0">
             <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">{dataset.message}</p>
-            <div className="mb-4 flex flex-wrap gap-2">
+                          <div className="mb-4 flex flex-wrap gap-2">
               <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary hover:bg-primary/20">
                 <Building2 className="h-3 w-3" />
                 {dataset.organization}
               </Badge>
-              {dataset.categories.length > 0 && (
-                <Badge variant="outline" className="gap-1">
+              {dataset.categories.map((category) => (
+                <Badge key={category.id} variant="outline" className="gap-1">
                   <Tag className="h-3 w-3" />
-                  {dataset.categories[0].name}
+                  {category.name}
                 </Badge>
-              )}
+              ))}
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -524,21 +534,7 @@ function DatasetListItem({ dataset, viewMode, formatDate }: DatasetListItemProps
                   <Badge variant="outline">+{dataset.categories.length - 2} more</Badge>
                 )}
               </div>
-              {dataset.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {dataset.tags.slice(0, 3).map((tag) => (
-                    <Badge key={tag.id} variant="secondary" className="text-xs">
-                      {tag.name}
-                    </Badge>
-                  ))}
-                  {dataset.tags.length > 3 && (
-                    <Badge variant="secondary" className="text-xs">
-                      +{dataset.tags.length - 3}
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </div>
+              </div>
             <div className="flex flex-row gap-6 text-sm text-muted-foreground sm:flex-col sm:items-end sm:gap-2">
               <span className="flex items-center gap-1">
                 <FileText className="h-4 w-4" />

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { fetchSingleApprovedContribution, type ApprovedContribution } from "@/lib/api"
+import { fetchSingleApprovedContribution, fetchFileData, type ApprovedContribution, type FileData } from "@/lib/api"
 import {
   ArrowLeft,
   Download,
@@ -24,8 +24,10 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
+  BarChart3,
 } from "lucide-react"
 import Link from "next/link"
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 
 export default function DatasetDetailPage() {
   const params = useParams()
@@ -33,16 +35,19 @@ export default function DatasetDetailPage() {
   const id = params?.id as string
 
   const [dataset, setDataset] = useState<ApprovedContribution | null>(null)
+  const [fileData, setFileData] = useState<FileData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingChart, setLoadingChart] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [chartError, setChartError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [showChart, setShowChart] = useState(false)
 
   useEffect(() => {
     const loadDataset = async () => {
       try {
         setLoading(true)
         setError(null)
-        // Use the public approved endpoint
         const data = await fetchSingleApprovedContribution(id)
         setDataset(data)
       } catch (err) {
@@ -57,6 +62,24 @@ export default function DatasetDetailPage() {
       loadDataset()
     }
   }, [id])
+
+  const loadChartData = async () => {
+    try {
+      setLoadingChart(true)
+      setChartError(null)
+      console.log('Fetching chart data for ID:', id)
+      const data = await fetchFileData(id)
+      console.log('Chart data received:', data)
+      setFileData(data)
+      setShowChart(true)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to load chart data"
+      console.error("Error loading chart data:", err)
+      setChartError(errorMessage)
+    } finally {
+      setLoadingChart(false)
+    }
+  }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -99,6 +122,75 @@ export default function DatasetDetailPage() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  // Auto-detect best chart type and prepare data
+  const getChartConfig = () => {
+    if (!fileData?.rows || fileData.rows.length === 0) return null
+
+    const headers = fileData.headers
+    const rows = fileData.rows
+
+    // Find numeric columns
+    const numericColumns = headers.filter((header) => {
+      const firstValue = rows[0]?.[header]
+      return typeof firstValue === "number"
+    })
+
+    // Find text/categorical columns (potential x-axis)
+    const categoricalColumns = headers.filter((header) => {
+      const firstValue = rows[0]?.[header]
+      return typeof firstValue === "string" && firstValue !== null && firstValue !== ""
+    })
+
+    // Default: use first categorical column as X-axis, rest numeric as Y-axis
+    const xAxisKey = categoricalColumns[0] || headers[0]
+    const yAxisKeys = numericColumns.length > 0 ? numericColumns.slice(0, 5) : headers.slice(1, 4) // Max 5 lines
+
+    console.log("Chart Config:", {
+      xAxisKey,
+      yAxisKeys,
+      firstRow: rows[0],
+      headers
+    })
+
+    // Prepare data - filter out empty rows and limit to 50 points for better performance
+    const chartData = rows
+      .filter((row) => {
+        // Keep row if it has at least one non-null, non-empty value
+        return Object.values(row).some(val => val !== null && val !== "" && val !== undefined)
+      })
+      .slice(0, 50)
+      .map((row) => {
+        const dataPoint: any = { name: row[xAxisKey] || "Unknown" }
+        yAxisKeys.forEach((key) => {
+          dataPoint[key] = row[key]
+        })
+        return dataPoint
+      })
+
+    return {
+      data: chartData,
+      xAxisKey: "name",
+      yAxisKeys,
+      originalXAxisKey: xAxisKey,
+    }
+  }
+
+  const chartConfig = showChart && fileData ? getChartConfig() : null
+
+  // Enhanced color palette for better visibility - more distinct colors
+  const colors = [
+    "#3b82f6", // Blue
+    "#ef4444", // Red
+    "#10b981", // Green
+    "#f59e0b", // Orange
+    "#8b5cf6", // Purple
+    "#ec4899", // Pink
+    "#06b6d4", // Cyan
+    "#84cc16", // Lime
+    "#f97316", // Deep Orange
+    "#a855f7", // Violet
+  ]
 
   if (loading) {
     return (
@@ -204,9 +296,230 @@ export default function DatasetDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-muted-foreground whitespace-pre-wrap">{dataset.message}</p>
+                    <p className="whitespace-pre-wrap text-muted-foreground">{dataset.message}</p>
                   </CardContent>
                 </Card>
+
+                {/* Data Visualization */}
+                {dataset.file_path && (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <BarChart3 className="h-5 w-5" />
+                          Data Visualization
+                        </CardTitle>
+                        {!showChart && (
+                          <Button onClick={loadChartData} disabled={loadingChart} size="sm">
+                            {loadingChart ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "View Chart"
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      {chartError && (
+                        <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-destructive" />
+                            <div>
+                              <p className="font-medium text-destructive">Failed to load chart</p>
+                              <p className="mt-1 text-sm text-muted-foreground">{chartError}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {loadingChart && (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                      )}
+
+                      {showChart && chartConfig && (
+                        <div className="space-y-6">
+                          {/* Chart Info */}
+                          <div className="rounded-lg bg-muted/50 p-4">
+                            <p className="text-sm text-muted-foreground">
+                              Displaying {chartConfig.data.length} rows 
+                              {fileData && fileData.rows.length !== chartConfig.data.length && (
+                                <span className="text-muted-foreground/70">
+                                  {" "}(filtered from {fileData.rows.length} total rows)
+                                </span>
+                              )}
+                              {" "}with {chartConfig.yAxisKeys.length} data series
+                              {chartConfig.originalXAxisKey && (
+                                <span className="ml-2">
+                                  • X-axis: <span className="font-medium">{chartConfig.originalXAxisKey}</span>
+                                </span>
+                              )}
+                            </p>
+                            {/* Debug: Show first row data */}
+                            {process.env.NODE_ENV === 'development' && (
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs text-muted-foreground">
+                                  Debug: View first row
+                                </summary>
+                                <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-xs">
+                                  {JSON.stringify(fileData?.rows[0], null, 2)}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+
+                          {/* Line Chart */}
+                          <div>
+                            <h4 className="mb-4 font-medium">Line Chart</h4>
+                            <ResponsiveContainer width="100%" height={600}>
+                              <LineChart data={chartConfig.data} margin={{ top: 20, right: 30, left: 20, bottom: 120 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                                <XAxis 
+                                  dataKey={chartConfig.xAxisKey}
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={100}
+                                  interval={0}
+                                  tick={{ fontSize: 11 }}
+                                />
+                                <YAxis tick={{ fontSize: 12 }} />
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'white', 
+                                    border: '1px solid #ccc',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    maxWidth: '300px'
+                                  }}
+                                  wrapperStyle={{ zIndex: 1000 }}
+                                />
+                                <Legend 
+                                  verticalAlign="bottom"
+                                  height={80}
+                                  wrapperStyle={{ 
+                                    paddingTop: '30px',
+                                    fontSize: '12px',
+                                    bottom: 0
+                                  }}
+                                  iconType="line"
+                                  layout="horizontal"
+                                  align="center"
+                                />
+                                {chartConfig.yAxisKeys.map((key, index) => (
+                                  <Line
+                                    key={key}
+                                    type="monotone"
+                                    dataKey={key}
+                                    name={key}
+                                    stroke={colors[index % colors.length]}
+                                    strokeWidth={2.5}
+                                    dot={{ r: 3, strokeWidth: 2 }}
+                                    activeDot={{ r: 6 }}
+                                  />
+                                ))}
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Bar Chart */}
+                          <div>
+                            <h4 className="mb-4 font-medium">Bar Chart</h4>
+                            <ResponsiveContainer width="100%" height={600}>
+                              <BarChart data={chartConfig.data} margin={{ top: 20, right: 30, left: 20, bottom: 120 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                                <XAxis 
+                                  dataKey={chartConfig.xAxisKey}
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={100}
+                                  interval={0}
+                                  tick={{ fontSize: 11 }}
+                                />
+                                <YAxis tick={{ fontSize: 12 }} />
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'white', 
+                                    border: '1px solid #ccc',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    maxWidth: '300px'
+                                  }}
+                                  wrapperStyle={{ zIndex: 1000 }}
+                                />
+                                <Legend 
+                                  verticalAlign="bottom"
+                                  height={80}
+                                  wrapperStyle={{ 
+                                    paddingTop: '30px',
+                                    fontSize: '12px',
+                                    bottom: 0
+                                  }}
+                                  iconType="rect"
+                                  layout="horizontal"
+                                  align="center"
+                                />
+                                {chartConfig.yAxisKeys.map((key, index) => (
+                                  <Bar 
+                                    key={key} 
+                                    dataKey={key}
+                                    name={key}
+                                    fill={colors[index % colors.length]}
+                                    opacity={0.85}
+                                  />
+                                ))}
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Data Table Preview */}
+                          <div>
+                            <h4 className="mb-4 font-medium">Data Preview (First 10 Rows with Data)</h4>
+                            <div className="overflow-x-auto rounded-lg border">
+                              <table className="w-full text-sm">
+                                <thead className="bg-muted/50">
+                                  <tr>
+                                    {fileData?.headers.map((header) => (
+                                      <th key={header} className="px-4 py-2 text-left font-medium">
+                                        {header}
+                                      </th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {chartConfig.data.slice(0, 10).map((row, index) => (
+                                    <tr key={index} className="border-t">
+                                      {fileData?.headers.map((header) => (
+                                        <td key={header} className="px-4 py-2">
+                                          {row[header] !== null && row[header] !== undefined && row[header] !== "" 
+                                            ? row[header] 
+                                            : "-"}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {!showChart && !loadingChart && !chartError && (
+                        <div className="rounded-lg border-2 border-dashed py-12 text-center">
+                          <BarChart3 className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                          <p className="mt-4 text-muted-foreground">
+                            Click "View Chart" to visualize this dataset
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* File Resource */}
                 {dataset.file_path && (
@@ -249,7 +562,6 @@ export default function DatasetDetailPage() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {/* Categories */}
                       {dataset.categories.length > 0 && (
                         <div>
                           <p className="mb-2 text-sm font-medium text-muted-foreground">Categories</p>
@@ -264,10 +576,8 @@ export default function DatasetDetailPage() {
                         </div>
                       )}
 
-                      {/* Separator if both exist */}
                       {dataset.categories.length > 0 && dataset.tags.length > 0 && <Separator />}
 
-                      {/* Tags */}
                       {dataset.tags.length > 0 && (
                         <div>
                           <p className="mb-2 text-sm font-medium text-muted-foreground">Tags</p>

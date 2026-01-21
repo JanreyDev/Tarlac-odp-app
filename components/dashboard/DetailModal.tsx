@@ -1,9 +1,10 @@
 // components/dashboard/DetailModal.tsx
 import React, { useEffect, useState } from 'react';
 import { fetchCategories, fetchTags } from '@/lib/api';
+import type { Category } from '@/lib/api';
 
 import { ConfirmationDialog } from './ConfirmationDialog';
-import { FolderOpen, Tag, AlertCircle } from 'lucide-react';
+import { FolderOpen, Tag, AlertCircle, Check, ChevronDown } from 'lucide-react';
 import { TagInput } from './TagInput';
 
 
@@ -51,12 +52,13 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 }) => {
   const [editedSubmission, setEditedSubmission] = useState(submission);
   const [originalSubmission, setOriginalSubmission] = useState(submission);
-  const [categorySuggestions, setCategorySuggestions] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmationType, setConfirmationType] = useState<'approve' | 'reject' | 'pending' | 'save'>('save');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Fetch categories and tags on mount
   useEffect(() => {
@@ -68,7 +70,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
           fetchTags(),
         ]);
         
-        setCategorySuggestions(categories.map(c => c.name));
+        setAllCategories(categories);
         setTagSuggestions(tags.map(t => t.name));
       } catch (error) {
         console.error('Error loading categories/tags:', error);
@@ -154,6 +156,28 @@ export const DetailModal: React.FC<DetailModalProps> = ({
     onClose();
   };
 
+  const handleCategoryToggle = (categoryName: string) => {
+    const isSelected = editedSubmission.categories.includes(categoryName);
+    if (isSelected) {
+      setEditedSubmission({
+        ...editedSubmission,
+        categories: editedSubmission.categories.filter(c => c !== categoryName)
+      });
+    } else {
+      setEditedSubmission({
+        ...editedSubmission,
+        categories: [...editedSubmission.categories, categoryName]
+      });
+    }
+  };
+
+  const handleRemoveCategory = (categoryName: string) => {
+    setEditedSubmission({
+      ...editedSubmission,
+      categories: editedSubmission.categories.filter(c => c !== categoryName)
+    });
+  };
+
   const getFileIcon = (type: string) => {
     if (type.includes('pdf')) return '📄';
     if (type.includes('excel') || type.includes('csv')) return '📊';
@@ -161,6 +185,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({
     if (type.includes('zip')) return '🗜️';
     if (type.includes('image')) return '🖼️';
     return '📎';
+  };
+
+  const getCategoryIcon = (categoryName: string) => {
+    const category = allCategories.find(c => c.name === categoryName);
+    return category?.icon || 'Database';
   };
 
   const confirmConfig = getConfirmationConfig();
@@ -360,25 +389,115 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 </h3>
               </div>
 
-              {/* Categories Input */}
-              {isLoadingOptions ? (
-                <div className="text-sm text-gray-500">Loading categories...</div>
-              ) : (
-                <TagInput
-                  label="Categories"
-                  tags={editedSubmission.categories}
-                  onChange={(categories) =>
-                    setEditedSubmission({ ...editedSubmission, categories })
-                  }
-                  placeholder="Type category name and press Enter (e.g., Agriculture, Education)"
-                  suggestions={categorySuggestions}
-                  tagColor="green"
-                  icon={<FolderOpen className="h-4 w-4 text-gray-500" />}
-                  description="Organize the dataset into relevant categories for easier discovery"
-                />
-              )}
+              {/* Categories Dropdown - NEW */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-gray-500" />
+                    Categories
+                  </div>
+                </label>
+                
+                {/* Selected Categories Display */}
+                {editedSubmission.categories.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {editedSubmission.categories.map((categoryName) => {
+                      const category = allCategories.find(c => c.name === categoryName);
+                      return (
+                        <span
+                          key={categoryName}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-green-100 text-green-800 border border-green-200"
+                        >
+                          {category && (
+                            <span className="text-base">
+                              {/* Render icon dynamically */}
+                            </span>
+                          )}
+                          {categoryName}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCategory(categoryName)}
+                            className="ml-1 hover:text-green-900"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
 
-              {/* Tags Input */}
+                {/* Dropdown Button */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all flex items-center justify-between bg-white hover:bg-gray-50"
+                  >
+                    <span className="text-gray-700">
+                      {editedSubmission.categories.length === 0
+                        ? 'Select categories...'
+                        : `${editedSubmission.categories.length} selected`}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showCategoryDropdown && (
+                    <div className="absolute z-10 w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                      {isLoadingOptions ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">Loading categories...</div>
+                      ) : allCategories.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-gray-500">
+                          No categories available. Add categories from the dashboard.
+                        </div>
+                      ) : (
+                        <div className="py-1">
+                          {allCategories.map((category) => {
+                            const isSelected = editedSubmission.categories.includes(category.name);
+                            return (
+                              <button
+                                key={category.id}
+                                type="button"
+                                onClick={() => handleCategoryToggle(category.name)}
+                                className={`w-full px-4 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                                  isSelected ? 'bg-green-50' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`flex items-center justify-center w-5 h-5 rounded border-2 transition-colors ${
+                                    isSelected
+                                      ? 'bg-green-600 border-green-600'
+                                      : 'border-gray-300'
+                                  }`}>
+                                    {isSelected && <Check className="h-3 w-3 text-white" />}
+                                  </div>
+                                  <div className="text-left">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {category.name}
+                                    </div>
+                                    {category.description && (
+                                      <div className="text-xs text-gray-500 line-clamp-1">
+                                        {category.description}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Organize the dataset into relevant categories for easier discovery
+                </p>
+              </div>
+
+              {/* Tags Input - Keep as free-form */}
               {isLoadingOptions ? (
                 <div className="text-sm text-gray-500">Loading tags...</div>
               ) : (
