@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Menu, X, ChevronDown, Database, Code, MapPin } from "lucide-react"
@@ -9,6 +10,14 @@ import { AuthButton } from "../auth/auth-button"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  const isActive = (path: string) => {
+    if (path === "/") {
+      return pathname === "/"
+    }
+    return pathname.startsWith(path)
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/60">
@@ -27,34 +36,52 @@ export function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-1 md:flex">
           <Link href="/datasets">
-            <Button variant="ghost" className="text-sm">
+            <Button 
+              variant="ghost" 
+              className={`text-sm hover:bg-[#0B7A3E] hover:text-white ${isActive("/datasets") ? "bg-[#0B7A3E] text-white" : ""}`}
+            >
               Datasets
             </Button>
           </Link>
           <Link href="/categories">
-            <Button variant="ghost" className="text-sm">
+            <Button 
+              variant="ghost" 
+              className={`text-sm hover:bg-[#0B7A3E] hover:text-white ${isActive("/categories") ? "bg-[#0B7A3E] text-white" : ""}`}
+            >
               Categories
             </Button>
           </Link>
           <Link href="/map">
-            <Button variant="ghost" className="text-sm">
+            <Button 
+              variant="ghost" 
+              className={`text-sm hover:bg-[#0B7A3E] hover:text-white ${isActive("/map") ? "bg-[#0B7A3E] text-white" : ""}`}
+            >
               Maps
             </Button>
           </Link>
           <Link href="/about">
-            <Button variant="ghost" className="text-sm">
+            <Button 
+              variant="ghost" 
+              className={`text-sm hover:bg-[#0B7A3E] hover:text-white ${isActive("/about") ? "bg-[#0B7A3E] text-white" : ""}`}
+            >
               About
             </Button>
           </Link>
           <Link href="/contribute">
-            <Button variant="ghost" className="text-sm">
+            <Button 
+              variant="ghost" 
+              className={`text-sm hover:bg-[#0B7A3E] hover:text-white ${isActive("/contribute") ? "bg-[#0B7A3E] text-white" : ""}`}
+            >
               Contribute
             </Button>
           </Link>
           <AuthButton></AuthButton>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="text-sm">
+              <Button 
+                variant="ghost" 
+                className={`text-sm hover:bg-[#0B7A3E] hover:text-white ${isActive("/api-docs") || isActive("/gis") ? "bg-[#0B7A3E] text-white" : ""}`}
+              >
                 Resources <ChevronDown className="ml-1 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -85,25 +112,53 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="border-t border-border bg-card md:hidden">
           <nav className="flex flex-col px-4 py-4">
-            <Link href="/datasets" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link 
+              href="/datasets" 
+              className={`py-2 text-sm font-medium hover:text-[#0B7A3E] ${isActive("/datasets") ? "text-[#0B7A3E]" : ""}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Datasets
             </Link>
-            <Link href="/categories" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link 
+              href="/categories" 
+              className={`py-2 text-sm font-medium hover:text-[#0B7A3E] ${isActive("/categories") ? "text-[#0B7A3E]" : ""}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Categories
             </Link>
-            <Link href="/map" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link 
+              href="/map" 
+              className={`py-2 text-sm font-medium hover:text-[#0B7A3E] ${isActive("/map") ? "text-[#0B7A3E]" : ""}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Maps
             </Link>
-            <Link href="/about" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link 
+              href="/about" 
+              className={`py-2 text-sm font-medium hover:text-[#0B7A3E] ${isActive("/about") ? "text-[#0B7A3E]" : ""}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               About
             </Link>
-            <Link href="/contribute" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link 
+              href="/contribute" 
+              className={`py-2 text-sm font-medium hover:text-[#0B7A3E] ${isActive("/contribute") ? "text-[#0B7A3E]" : ""}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Contribute
             </Link>
-            <Link href="/login" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link 
+              href="/login" 
+              className={`py-2 text-sm font-medium hover:text-[#0B7A3E] ${isActive("/login") ? "text-[#0B7A3E]" : ""}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Login
             </Link>
-            <Link href="/api-docs" className="py-2 text-sm font-medium" onClick={() => setMobileMenuOpen(false)}>
+            <Link 
+              href="/api-docs" 
+              className={`py-2 text-sm font-medium hover:text-[#0B7A3E] ${isActive("/api-docs") ? "text-[#0B7A3E]" : ""}`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Developer API
             </Link>
           </nav>

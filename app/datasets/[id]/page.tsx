@@ -27,7 +27,7 @@ import {
   BarChart3,
 } from "lucide-react"
 import Link from "next/link"
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 
 export default function DatasetDetailPage() {
   const params = useParams()
@@ -177,6 +177,15 @@ export default function DatasetDetailPage() {
   }
 
   const chartConfig = showChart && fileData ? getChartConfig() : null
+
+  // Calculate dynamic legend columns based on number of data series
+  const getLegendColumns = (count: number) => {
+    if (count <= 2) return 2 // 2 items or less: keep in 2 columns
+    if (count <= 4) return 2 // 3-4 items: 2 columns
+    return Math.ceil(count / 2) // Divide evenly into 2 columns
+  }
+
+  const legendColumns = chartConfig ? getLegendColumns(chartConfig.yAxisKeys.length) : 2
 
   // Enhanced color palette for better visibility - more distinct colors
   const colors = [
@@ -360,55 +369,32 @@ export default function DatasetDetailPage() {
                                 </span>
                               )}
                             </p>
-                            {/* Debug: Show first row data */}
-                            {process.env.NODE_ENV === 'development' && (
-                              <details className="mt-2">
-                                <summary className="cursor-pointer text-xs text-muted-foreground">
-                                  Debug: View first row
-                                </summary>
-                                <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-xs">
-                                  {JSON.stringify(fileData?.rows[0], null, 2)}
-                                </pre>
-                              </details>
-                            )}
                           </div>
 
                           {/* Line Chart */}
                           <div>
                             <h4 className="mb-4 font-medium">Line Chart</h4>
                             <ResponsiveContainer width="100%" height={600}>
-                              <LineChart data={chartConfig.data} margin={{ top: 20, right: 30, left: 20, bottom: 120 }}>
+                              <LineChart data={chartConfig.data} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                                 <XAxis 
                                   dataKey={chartConfig.xAxisKey}
                                   angle={-45}
                                   textAnchor="end"
-                                  height={100}
+                                  height={80}
                                   interval={0}
-                                  tick={{ fontSize: 11 }}
+                                  tick={{ fontSize: 10 }}
                                 />
-                                <YAxis tick={{ fontSize: 12 }} />
+                                <YAxis tick={{ fontSize: 11 }} />
                                 <Tooltip 
                                   contentStyle={{ 
                                     backgroundColor: 'white', 
                                     border: '1px solid #ccc',
                                     borderRadius: '4px',
-                                    fontSize: '12px',
+                                    fontSize: '11px',
                                     maxWidth: '300px'
                                   }}
                                   wrapperStyle={{ zIndex: 1000 }}
-                                />
-                                <Legend 
-                                  verticalAlign="bottom"
-                                  height={80}
-                                  wrapperStyle={{ 
-                                    paddingTop: '30px',
-                                    fontSize: '12px',
-                                    bottom: 0
-                                  }}
-                                  iconType="line"
-                                  layout="horizontal"
-                                  align="center"
                                 />
                                 {chartConfig.yAxisKeys.map((key, index) => (
                                   <Line
@@ -417,8 +403,8 @@ export default function DatasetDetailPage() {
                                     dataKey={key}
                                     name={key}
                                     stroke={colors[index % colors.length]}
-                                    strokeWidth={2.5}
-                                    dot={{ r: 3, strokeWidth: 2 }}
+                                    strokeWidth={3}
+                                    dot={{ r: 4 }}
                                     activeDot={{ r: 6 }}
                                   />
                                 ))}
@@ -430,38 +416,26 @@ export default function DatasetDetailPage() {
                           <div>
                             <h4 className="mb-4 font-medium">Bar Chart</h4>
                             <ResponsiveContainer width="100%" height={600}>
-                              <BarChart data={chartConfig.data} margin={{ top: 20, right: 30, left: 20, bottom: 120 }}>
+                              <BarChart data={chartConfig.data} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                                 <XAxis 
                                   dataKey={chartConfig.xAxisKey}
                                   angle={-45}
                                   textAnchor="end"
-                                  height={100}
+                                  height={80}
                                   interval={0}
-                                  tick={{ fontSize: 11 }}
+                                  tick={{ fontSize: 10 }}
                                 />
-                                <YAxis tick={{ fontSize: 12 }} />
+                                <YAxis tick={{ fontSize: 11 }} />
                                 <Tooltip 
                                   contentStyle={{ 
                                     backgroundColor: 'white', 
                                     border: '1px solid #ccc',
                                     borderRadius: '4px',
-                                    fontSize: '12px',
+                                    fontSize: '11px',
                                     maxWidth: '300px'
                                   }}
                                   wrapperStyle={{ zIndex: 1000 }}
-                                />
-                                <Legend 
-                                  verticalAlign="bottom"
-                                  height={80}
-                                  wrapperStyle={{ 
-                                    paddingTop: '30px',
-                                    fontSize: '12px',
-                                    bottom: 0
-                                  }}
-                                  iconType="rect"
-                                  layout="horizontal"
-                                  align="center"
                                 />
                                 {chartConfig.yAxisKeys.map((key, index) => (
                                   <Bar 
@@ -473,6 +447,39 @@ export default function DatasetDetailPage() {
                                   />
                                 ))}
                               </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Pie Chart */}
+                          <div>
+                            <h4 className="mb-4 font-medium">Pie Chart</h4>
+                            <ResponsiveContainer width="100%" height={400}>
+                              <PieChart>
+                                <Pie
+                                  data={chartConfig.data}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                                  outerRadius={120}
+                                  fill="#8884d8"
+                                  dataKey={chartConfig.yAxisKeys[0]}
+                                  nameKey={chartConfig.xAxisKey}
+                                >
+                                  {chartConfig.data.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                                  ))}
+                                </Pie>
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: 'white', 
+                                    border: '1px solid #ccc',
+                                    borderRadius: '4px',
+                                    fontSize: '11px'
+                                  }}
+                                  formatter={(value: any) => [value, chartConfig.yAxisKeys[0]]}
+                                />
+                              </PieChart>
                             </ResponsiveContainer>
                           </div>
 
