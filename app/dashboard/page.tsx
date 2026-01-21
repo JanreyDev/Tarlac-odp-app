@@ -392,7 +392,7 @@ export default function DashboardPage() {
               <div
                 key={submission.id}
                 onClick={() => handleRowClick(submission)}
-                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer space-x-2"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

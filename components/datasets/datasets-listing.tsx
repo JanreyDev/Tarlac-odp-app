@@ -28,9 +28,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Separator } from "@/components/ui/separator"
 import { fetchApprovedContributions, type ApprovedContribution } from "@/lib/api"
-import { DatasetStatistics } from "@/components/datasets/dataset-statistics"
 
 const ITEMS_PER_PAGE = 10
 
@@ -88,6 +86,14 @@ export function DatasetsListing() {
     })
     return Array.from(typeSet).sort()
   }, [datasets])
+
+  // Helper function to format request type labels
+  const formatRequestType = (type: string) => {
+    return type
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
 
   const filteredDatasets = useMemo(() => {
     let results = [...datasets]
@@ -218,14 +224,6 @@ export function DatasetsListing() {
   return (
     <section className="px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        {/* Statistics Section */}
-        <div className="mb-8">
-          <h2 className="mb-4 text-2xl font-bold text-foreground">Dataset Statistics</h2>
-          <DatasetStatistics datasets={datasets} />
-        </div>
-
-        <Separator className="my-8" />
-
         <div className="grid gap-8 lg:grid-cols-4">
           {/* Filters Sidebar */}
           <aside className="lg:col-span-1">
@@ -298,7 +296,7 @@ export function DatasetsListing() {
                             onCheckedChange={() => toggleType(type)}
                           />
                           <Label htmlFor={`type-${type}`} className="cursor-pointer text-sm font-normal">
-                            {type}
+                            {formatRequestType(type)}
                           </Label>
                         </div>
                       ))}
@@ -376,7 +374,7 @@ export function DatasetsListing() {
                 ))}
                 {selectedTypes.map((type) => (
                   <Badge key={type} variant="secondary" className="gap-1">
-                    {type}
+                    {formatRequestType(type)}
                     <X className="h-3 w-3 cursor-pointer" onClick={() => toggleType(type)} />
                   </Badge>
                 ))}
@@ -384,7 +382,7 @@ export function DatasetsListing() {
             )}
 
             {/* Dataset Cards */}
-            <div className={viewMode === "grid" ? "grid gap-6 sm:grid-cols-2" : "space-y-4"}>
+            <div className={viewMode === "grid" ? "grid gap-6 sm:grid-cols-2" : "flex flex-col gap-6"}>
               {paginatedDatasets.map((dataset) => (
                 <DatasetListItem key={dataset.id} dataset={dataset} viewMode={viewMode} formatDate={formatDate} />
               ))}
@@ -480,7 +478,7 @@ function DatasetListItem({ dataset, viewMode, formatDate }: DatasetListItemProps
           </CardHeader>
           <CardContent className="pt-0">
             <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">{dataset.message}</p>
-                          <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 flex flex-wrap gap-2">
               <Badge variant="secondary" className="gap-1 bg-primary/10 text-primary hover:bg-primary/20">
                 <Building2 className="h-3 w-3" />
                 {dataset.organization}
@@ -512,8 +510,8 @@ function DatasetListItem({ dataset, viewMode, formatDate }: DatasetListItemProps
     <Link href={`/datasets/${dataset.id}`}>
       <Card className="group transition-all hover:border-primary/30 hover:shadow-md">
         <CardContent className="p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex-1 space-y-2">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <div className="flex-1 space-y-3">
               <div className="flex items-start gap-2">
                 <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">{dataset.title}</h3>
                 <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
@@ -534,8 +532,8 @@ function DatasetListItem({ dataset, viewMode, formatDate }: DatasetListItemProps
                   <Badge variant="outline">+{dataset.categories.length - 2} more</Badge>
                 )}
               </div>
-              </div>
-            <div className="flex flex-row gap-6 text-sm text-muted-foreground sm:flex-col sm:items-end sm:gap-2">
+            </div>
+            <div className="flex flex-row gap-6 text-sm text-muted-foreground sm:flex-col sm:items-end sm:gap-3">
               <span className="flex items-center gap-1">
                 <FileText className="h-4 w-4" />
                 {dataset.request_type}
