@@ -27,7 +27,7 @@ import {
   BarChart3,
 } from "lucide-react"
 import Link from "next/link"
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
 
 export default function DatasetDetailPage() {
   const params = useParams()
@@ -142,13 +142,14 @@ export default function DatasetDetailPage() {
       return typeof firstValue === "string" && firstValue !== null && firstValue !== ""
     })
 
-    // Default: use first categorical column as X-axis, rest numeric as Y-axis
+    // Default: use first categorical column as X-axis, all numeric columns as Y-axis
     const xAxisKey = categoricalColumns[0] || headers[0]
-    const yAxisKeys = numericColumns.length > 0 ? numericColumns.slice(0, 5) : headers.slice(1, 4) // Max 5 lines
+    const yAxisKeys = numericColumns.length > 0 ? numericColumns : headers.slice(1) // Show all numeric columns
 
     console.log("Chart Config:", {
       xAxisKey,
       yAxisKeys,
+      allNumericColumns: numericColumns,
       firstRow: rows[0],
       headers
     })
@@ -177,15 +178,6 @@ export default function DatasetDetailPage() {
   }
 
   const chartConfig = showChart && fileData ? getChartConfig() : null
-
-  // Calculate dynamic legend columns based on number of data series
-  const getLegendColumns = (count: number) => {
-    if (count <= 2) return 2 // 2 items or less: keep in 2 columns
-    if (count <= 4) return 2 // 3-4 items: 2 columns
-    return Math.ceil(count / 2) // Divide evenly into 2 columns
-  }
-
-  const legendColumns = chartConfig ? getLegendColumns(chartConfig.yAxisKeys.length) : 2
 
   // Enhanced color palette for better visibility - more distinct colors
   const colors = [
@@ -296,19 +288,6 @@ export default function DatasetDetailPage() {
             <div className="grid gap-8 lg:grid-cols-3">
               {/* Main Content */}
               <div className="space-y-8 lg:col-span-2">
-                {/* Description */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Description
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap text-muted-foreground">{dataset.message}</p>
-                  </CardContent>
-                </Card>
-
                 {/* Data Visualization */}
                 {dataset.file_path && (
                   <Card>
@@ -352,167 +331,43 @@ export default function DatasetDetailPage() {
                       )}
 
                       {showChart && chartConfig && (
-                        <div className="space-y-6">
-                          {/* Chart Info */}
-                          <div className="rounded-lg bg-muted/50 p-4">
-                            <p className="text-sm text-muted-foreground">
-                              Displaying {chartConfig.data.length} rows 
-                              {fileData && fileData.rows.length !== chartConfig.data.length && (
-                                <span className="text-muted-foreground/70">
-                                  {" "}(filtered from {fileData.rows.length} total rows)
-                                </span>
-                              )}
-                              {" "}with {chartConfig.yAxisKeys.length} data series
-                              {chartConfig.originalXAxisKey && (
-                                <span className="ml-2">
-                                  • X-axis: <span className="font-medium">{chartConfig.originalXAxisKey}</span>
-                                </span>
-                              )}
-                            </p>
-                          </div>
-
-                          {/* Line Chart */}
-                          <div>
-                            <h4 className="mb-4 font-medium">Line Chart</h4>
-                            <ResponsiveContainer width="100%" height={600}>
-                              <LineChart data={chartConfig.data} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                                <XAxis 
-                                  dataKey={chartConfig.xAxisKey}
-                                  angle={-45}
-                                  textAnchor="end"
-                                  height={80}
-                                  interval={0}
-                                  tick={{ fontSize: 10 }}
+                        <div>
+                          <ResponsiveContainer width="100%" height={500}>
+                            <LineChart data={chartConfig.data} margin={{ top: 20, right: 20, left: 20, bottom: 100 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                              <XAxis 
+                                dataKey={chartConfig.xAxisKey}
+                                angle={-45}
+                                textAnchor="end"
+                                height={80}
+                                interval={0}
+                                tick={{ fontSize: 10 }}
+                              />
+                              <YAxis tick={{ fontSize: 11 }} />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: 'white', 
+                                  border: '1px solid #ccc',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  maxWidth: '400px'
+                                }}
+                                wrapperStyle={{ zIndex: 1000 }}
+                              />
+                              {chartConfig.yAxisKeys.map((key, index) => (
+                                <Line
+                                  key={key}
+                                  type="monotone"
+                                  dataKey={key}
+                                  name={key}
+                                  stroke={colors[index % colors.length]}
+                                  strokeWidth={2.5}
+                                  dot={{ r: 3 }}
+                                  activeDot={{ r: 5 }}
                                 />
-                                <YAxis tick={{ fontSize: 11 }} />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: 'white', 
-                                    border: '1px solid #ccc',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    maxWidth: '300px'
-                                  }}
-                                  wrapperStyle={{ zIndex: 1000 }}
-                                />
-                                {chartConfig.yAxisKeys.map((key, index) => (
-                                  <Line
-                                    key={key}
-                                    type="monotone"
-                                    dataKey={key}
-                                    name={key}
-                                    stroke={colors[index % colors.length]}
-                                    strokeWidth={3}
-                                    dot={{ r: 4 }}
-                                    activeDot={{ r: 6 }}
-                                  />
-                                ))}
-                              </LineChart>
-                            </ResponsiveContainer>
-                          </div>
-
-                          {/* Bar Chart */}
-                          <div>
-                            <h4 className="mb-4 font-medium">Bar Chart</h4>
-                            <ResponsiveContainer width="100%" height={600}>
-                              <BarChart data={chartConfig.data} margin={{ top: 5, right: 20, left: 0, bottom: 60 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                                <XAxis 
-                                  dataKey={chartConfig.xAxisKey}
-                                  angle={-45}
-                                  textAnchor="end"
-                                  height={80}
-                                  interval={0}
-                                  tick={{ fontSize: 10 }}
-                                />
-                                <YAxis tick={{ fontSize: 11 }} />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: 'white', 
-                                    border: '1px solid #ccc',
-                                    borderRadius: '4px',
-                                    fontSize: '11px',
-                                    maxWidth: '300px'
-                                  }}
-                                  wrapperStyle={{ zIndex: 1000 }}
-                                />
-                                {chartConfig.yAxisKeys.map((key, index) => (
-                                  <Bar 
-                                    key={key} 
-                                    dataKey={key}
-                                    name={key}
-                                    fill={colors[index % colors.length]}
-                                    opacity={0.85}
-                                  />
-                                ))}
-                              </BarChart>
-                            </ResponsiveContainer>
-                          </div>
-
-                          {/* Pie Chart */}
-                          <div>
-                            <h4 className="mb-4 font-medium">Pie Chart</h4>
-                            <ResponsiveContainer width="100%" height={400}>
-                              <PieChart>
-                                <Pie
-                                  data={chartConfig.data}
-                                  cx="50%"
-                                  cy="50%"
-                                  labelLine={false}
-                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
-                                  outerRadius={120}
-                                  fill="#8884d8"
-                                  dataKey={chartConfig.yAxisKeys[0]}
-                                  nameKey={chartConfig.xAxisKey}
-                                >
-                                  {chartConfig.data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
-                                  ))}
-                                </Pie>
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: 'white', 
-                                    border: '1px solid #ccc',
-                                    borderRadius: '4px',
-                                    fontSize: '11px'
-                                  }}
-                                  formatter={(value: any) => [value, chartConfig.yAxisKeys[0]]}
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-
-                          {/* Data Table Preview */}
-                          <div>
-                            <h4 className="mb-4 font-medium">Data Preview (First 10 Rows with Data)</h4>
-                            <div className="overflow-x-auto rounded-lg border">
-                              <table className="w-full text-sm">
-                                <thead className="bg-muted/50">
-                                  <tr>
-                                    {fileData?.headers.map((header) => (
-                                      <th key={header} className="px-4 py-2 text-left font-medium">
-                                        {header}
-                                      </th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {chartConfig.data.slice(0, 10).map((row, index) => (
-                                    <tr key={index} className="border-t">
-                                      {fileData?.headers.map((header) => (
-                                        <td key={header} className="px-4 py-2">
-                                          {row[header] !== null && row[header] !== undefined && row[header] !== "" 
-                                            ? row[header] 
-                                            : "-"}
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
+                              ))}
+                            </LineChart>
+                          </ResponsiveContainer>
                         </div>
                       )}
 
@@ -524,37 +379,6 @@ export default function DatasetDetailPage() {
                           </p>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* File Resource */}
-                {dataset.file_path && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        Resource File
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                            <File className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {dataset.file_path.split("/").pop() || "Download File"}
-                            </p>
-                            <p className="text-sm text-muted-foreground">{dataset.request_type}</p>
-                          </div>
-                        </div>
-                        <Button size="sm" className="gap-1" onClick={handleDownload}>
-                          <Download className="h-4 w-4" />
-                          Download
-                        </Button>
-                      </div>
                     </CardContent>
                   </Card>
                 )}
@@ -600,32 +424,51 @@ export default function DatasetDetailPage() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* File Resource */}
+                {dataset.file_path && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Resource File
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                            <File className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {(() => {
+                                const filename = dataset.file_path.split("/").pop() || "Download File"
+                                // Remove timestamp prefix (numbers and underscore at start)
+                                return filename.replace(/^\d+_\d+_/, '')
+                              })()}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {dataset.request_type
+                                .split('_')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(' ')
+                              }
+                            </p>
+                          </div>
+                        </div>
+                        <Button size="sm" className="gap-1" onClick={handleDownload}>
+                          <Download className="h-4 w-4" />
+                          Download
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
 
               {/* Sidebar */}
               <div className="space-y-6">
-                {/* Actions */}
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="space-y-3">
-                      {dataset.file_path && (
-                        <Button className="w-full gap-2" onClick={handleDownload}>
-                          <Download className="h-4 w-4" />
-                          Download File
-                        </Button>
-                      )}
-                      <Button variant="outline" className="w-full gap-2 bg-transparent" onClick={handleShare}>
-                        <Share2 className="h-4 w-4" />
-                        Share Dataset
-                      </Button>
-                      <Button variant="outline" className="w-full gap-2 bg-transparent" onClick={handleCopyAPI}>
-                        <Copy className="h-4 w-4" />
-                        {copied ? "Copied!" : "Copy API Link"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Metadata */}
                 <Card>
                   <CardHeader>
@@ -647,7 +490,13 @@ export default function DatasetDetailPage() {
                     <Separator />
                     <div>
                       <p className="text-sm text-muted-foreground">Request Type</p>
-                      <p className="font-medium">{dataset.request_type}</p>
+                      <p className="font-medium">
+                        {dataset.request_type
+                          .split('_')
+                          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                          .join(' ')
+                        }
+                      </p>
                     </div>
                     <Separator />
                     <div>
@@ -666,43 +515,6 @@ export default function DatasetDetailPage() {
                       <p className="text-sm text-muted-foreground">Last Updated</p>
                       <p className="font-medium">{formatDate(dataset.updated_at)}</p>
                     </div>
-                    {dataset.categories.length > 0 && (
-                      <>
-                        <Separator />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Categories</p>
-                          <p className="font-medium">{dataset.categories.length}</p>
-                        </div>
-                      </>
-                    )}
-                    {dataset.tags.length > 0 && (
-                      <>
-                        <Separator />
-                        <div>
-                          <p className="text-sm text-muted-foreground">Tags</p>
-                          <p className="font-medium">{dataset.tags.length}</p>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* API Access */}
-                <Card className="border-primary/30 bg-primary/5">
-                  <CardContent className="p-6">
-                    <h4 className="font-semibold text-foreground">API Access</h4>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Access this dataset programmatically via our REST API.
-                    </p>
-                    <code className="mt-3 block break-all rounded bg-muted p-2 text-xs">
-                      /api/v1/datasets/{dataset.id}
-                    </code>
-                    <Link href="/api-docs">
-                      <Button variant="link" className="mt-2 h-auto gap-1 p-0">
-                        View API Documentation
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    </Link>
                   </CardContent>
                 </Card>
               </div>
