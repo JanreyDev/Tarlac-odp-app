@@ -16,18 +16,25 @@ import {
   Calendar,
   Building2,
   Tag,
-  ExternalLink,
-  Copy,
-  Share2,
   File,
   User,
   Loader2,
   AlertCircle,
   CheckCircle,
   BarChart3,
+  Files,
 } from "lucide-react"
 import Link from "next/link"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+
+type ContributionFile = {
+  id: number
+  original_name: string
+  file_type: string
+  file_size: number
+  formatted_size: string
+  file_path: string
+}
 
 export default function DatasetDetailPage() {
   const params = useParams()
@@ -40,8 +47,8 @@ export default function DatasetDetailPage() {
   const [loadingChart, setLoadingChart] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [chartError, setChartError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [showChart, setShowChart] = useState(false)
+  const [selectedFileId, setSelectedFileId] = useState<number | null>(null)
 
   useEffect(() => {
     const loadDataset = async () => {
@@ -63,15 +70,25 @@ export default function DatasetDetailPage() {
     }
   }, [id])
 
-  const loadChartData = async () => {
+  const loadChartData = async (fileId?: number) => {
     try {
       setLoadingChart(true)
       setChartError(null)
-      console.log('Fetching chart data for ID:', id)
-      const data = await fetchFileData(id)
+      setFileData(null)
+      
+      console.log('Fetching chart data for contribution ID:', id, 'File ID:', fileId)
+      
+      // If fileId is provided, fetch that specific file's data
+      const data = fileId 
+        ? await fetchFileData(id, fileId.toString())
+        : await fetchFileData(id)
+      
       console.log('Chart data received:', data)
       setFileData(data)
       setShowChart(true)
+      if (fileId) {
+        setSelectedFileId(fileId)
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to load chart data"
       console.error("Error loading chart data:", err)
@@ -86,41 +103,33 @@ export default function DatasetDetailPage() {
     return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
   }
 
-  const handleDownload = () => {
-    if (dataset?.file_path) {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
-      const fileUrl = `${baseUrl}/storage/${dataset.file_path}`
-      window.open(fileUrl, "_blank")
-    }
+  const handleDownload = (filePath: string, fileName: string) => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
+    const fileUrl = `${baseUrl}/storage/${filePath}`
+    
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a')
+    link.href = fileUrl
+    link.download = fileName
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: dataset?.title,
-          text: dataset?.message,
-          url: window.location.href,
-        })
-      } catch (err) {
-        console.log("Error sharing:", err)
-      }
-    } else {
-      handleCopyLink()
-    }
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
   }
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const handleCopyAPI = () => {
-    const apiLink = `/api/v1/datasets/${id}`
-    navigator.clipboard.writeText(apiLink)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const getFileIcon = (fileType: string) => {
+    const type = fileType.toLowerCase()
+    if (type === 'csv') return '📊'
+    if (type === 'xlsx' || type === 'xls') return '📈'
+    return '📄'
   }
 
   // Auto-detect best chart type and prepare data
@@ -142,22 +151,12 @@ export default function DatasetDetailPage() {
       return typeof firstValue === "string" && firstValue !== null && firstValue !== ""
     })
 
-    // Default: use first categorical column as X-axis, all numeric columns as Y-axis
     const xAxisKey = categoricalColumns[0] || headers[0]
-    const yAxisKeys = numericColumns.length > 0 ? numericColumns : headers.slice(1) // Show all numeric columns
+    const yAxisKeys = numericColumns.length > 0 ? numericColumns : headers.slice(1)
 
-    console.log("Chart Config:", {
-      xAxisKey,
-      yAxisKeys,
-      allNumericColumns: numericColumns,
-      firstRow: rows[0],
-      headers
-    })
-
-    // Prepare data - filter out empty rows and limit to 50 points for better performance
+    // Prepare data - filter out empty rows and limit to 50 points
     const chartData = rows
       .filter((row) => {
-        // Keep row if it has at least one non-null, non-empty value
         return Object.values(row).some(val => val !== null && val !== "" && val !== undefined)
       })
       .slice(0, 50)
@@ -179,19 +178,14 @@ export default function DatasetDetailPage() {
 
   const chartConfig = showChart && fileData ? getChartConfig() : null
 
-  // Enhanced color palette for better visibility - more distinct colors
   const colors = [
-    "#3b82f6", // Blue
-    "#ef4444", // Red
-    "#10b981", // Green
-    "#f59e0b", // Orange
-    "#8b5cf6", // Purple
-    "#ec4899", // Pink
-    "#06b6d4", // Cyan
-    "#84cc16", // Lime
-    "#f97316", // Deep Orange
-    "#a855f7", // Violet
+    "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+    "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#a855f7",
   ]
+
+  // Check if dataset has multiple files
+  const hasMultipleFiles = dataset?.files && Array.isArray(dataset.files) && dataset.files.length > 0
+  const filesCount = hasMultipleFiles ? dataset.files.length : (dataset?.file_path ? 1 : 0)
 
   if (loading) {
     return (
@@ -255,6 +249,12 @@ export default function DatasetDetailPage() {
                 <CheckCircle className="h-3 w-3" />
                 Approved
               </Badge>
+              {filesCount > 0 && (
+                <Badge className="gap-1 bg-blue-500/20 text-blue-100 hover:bg-blue-500/30">
+                  <Files className="h-3 w-3" />
+                  {filesCount} {filesCount === 1 ? 'File' : 'Files'}
+                </Badge>
+              )}
             </div>
 
             <h1 className="text-2xl font-bold text-primary-foreground sm:text-3xl lg:text-4xl">{dataset.title}</h1>
@@ -289,26 +289,19 @@ export default function DatasetDetailPage() {
               {/* Main Content */}
               <div className="space-y-8 lg:col-span-2">
                 {/* Data Visualization */}
-                {dataset.file_path && (
+                {filesCount > 0 && (
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
                           <BarChart3 className="h-5 w-5" />
                           Data Visualization
+                          {selectedFileId && fileData && (
+                            <Badge variant="outline" className="ml-2">
+                              {fileData.file_info?.name || 'File'}
+                            </Badge>
+                          )}
                         </CardTitle>
-                        {!showChart && (
-                          <Button onClick={loadChartData} disabled={loadingChart} size="sm">
-                            {loadingChart ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Loading...
-                              </>
-                            ) : (
-                              "View Chart"
-                            )}
-                          </Button>
-                        )}
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -375,13 +368,127 @@ export default function DatasetDetailPage() {
                         <div className="rounded-lg border-2 border-dashed py-12 text-center">
                           <BarChart3 className="mx-auto h-12 w-12 text-muted-foreground/50" />
                           <p className="mt-4 text-muted-foreground">
-                            Click "View Chart" to visualize this dataset
+                            Select a file below to visualize the dataset
                           </p>
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Multiple Files Section */}
+                {hasMultipleFiles ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Files className="h-5 w-5" />
+                        Resource Files ({dataset.files.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {dataset.files.map((file: ContributionFile, index: number) => (
+                          <div
+                            key={file.id}
+                            className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 flex-shrink-0">
+                                <span className="text-xl">{getFileIcon(file.file_type)}</span>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-foreground truncate">
+                                  {file.original_name}
+                                </p>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <span className="uppercase">{file.file_type}</span>
+                                  <span>•</span>
+                                  <span>{file.formatted_size || formatFileSize(file.file_size)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {(file.file_type === 'csv' || file.file_type === 'xlsx' || file.file_type === 'xls') && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1"
+                                  onClick={() => loadChartData(file.id)}
+                                  disabled={loadingChart}
+                                >
+                                  <BarChart3 className="h-4 w-4" />
+                                  View Chart
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                className="gap-1"
+                                onClick={() => handleDownload(file.file_path, file.original_name)}
+                              >
+                                <Download className="h-4 w-4" />
+                                Download
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : dataset.file_path ? (
+                  /* Single File (Backward Compatibility) */
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Resource File
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                            <File className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {(() => {
+                                const filename = dataset.file_path.split("/").pop() || "Download File"
+                                return filename.replace(/^[\d_]+/, '')
+                              })()}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {dataset.request_type
+                                .split('_')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                .join(' ')
+                              }
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => loadChartData()}
+                            disabled={loadingChart}
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                            View Chart
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="gap-1"
+                            onClick={() => handleDownload(dataset.file_path, dataset.file_path.split("/").pop() || "file")}
+                          >
+                            <Download className="h-4 w-4" />
+                            Download
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
 
                 {/* Categories & Tags */}
                 {(dataset.categories.length > 0 || dataset.tags.length > 0) && (
@@ -424,47 +531,6 @@ export default function DatasetDetailPage() {
                     </CardContent>
                   </Card>
                 )}
-
-                {/* File Resource */}
-                {dataset.file_path && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        Resource File
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                            <File className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {(() => {
-                                const filename = dataset.file_path.split("/").pop() || "Download File"
-                                // Remove timestamp prefix (numbers and underscore at start)
-                                return filename.replace(/^\d+_\d+_/, '')
-                              })()}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {dataset.request_type
-                                .split('_')
-                                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                                .join(' ')
-                              }
-                            </p>
-                          </div>
-                        </div>
-                        <Button size="sm" className="gap-1" onClick={handleDownload}>
-                          <Download className="h-4 w-4" />
-                          Download
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
 
               {/* Sidebar */}
@@ -504,6 +570,11 @@ export default function DatasetDetailPage() {
                       <Badge className="mt-1 bg-green-500/10 text-green-700 hover:bg-green-500/20">
                         {dataset.status.charAt(0).toUpperCase() + dataset.status.slice(1)}
                       </Badge>
+                    </div>
+                    <Separator />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Files Included</p>
+                      <p className="font-medium">{filesCount} {filesCount === 1 ? 'file' : 'files'}</p>
                     </div>
                     <Separator />
                     <div>

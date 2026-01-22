@@ -23,6 +23,12 @@ export interface FileData {
   file_type: string
   headers: string[]
   rows: Record<string, any>[]
+  file_info?: {
+    id: number
+    name: string
+    type: string
+    size: string
+  }
 }
 
 type ApiFetchOptions = RequestInit & { path: string }
@@ -89,13 +95,42 @@ export type ContributePayload = {
 
 export async function submitContribution(payload: ContributePayload | FormData, token?: string) {
   const body = payload instanceof FormData ? payload : JSON.stringify(payload)
+  
+  // Build headers
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+  }
+  
+  // IMPORTANT: Don't set Content-Type for FormData - browser will set it with boundary
+  if (!(payload instanceof FormData)) {
+    headers["Content-Type"] = "application/json"
+  }
+  
+  // Add authorization token if provided
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`
+  }
 
-  return apiFetch<unknown>({
-    path: "/contributes",
+  const response = await fetch(`${defaultBase}/contributes`, {
     method: "POST",
+    headers,
     body,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    cache: "no-store",
   })
+
+  const contentType = response.headers.get("content-type") || ""
+  const data = contentType.includes("application/json") 
+    ? await response.json() 
+    : await response.text()
+
+  if (!response.ok) {
+    const message = typeof data === "string" ? data : data?.message || "Unable to submit contribution"
+    const error = new Error(message) as ApiError
+    error.status = response.status
+    throw error
+  }
+
+  return data
 }
 
 // 📄 Update contribution status (Admin only)
@@ -251,9 +286,14 @@ export async function fetchSingleContribution(id: string | number): Promise<Appr
 
 
 
-export async function fetchFileData(id: string): Promise<FileData> {
+export async function fetchFileData(contributionId: string, fileId?: string): Promise<FileData> {
+  // If fileId is provided, fetch that specific file's data
+  const path = fileId 
+    ? `/contributes/approved/${contributionId}/data/${fileId}`
+    : `/contributes/approved/${contributionId}/data`
+  
   return apiFetch<FileData>({
-    path: `/contributes/approved/${id}/data`,
+    path,
     method: "GET",
   })
 }

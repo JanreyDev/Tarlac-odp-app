@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { LogIn, Send, Upload, X, FileText, CheckCircle } from "lucide-react"
+import { LogIn, Send, Upload, X, FileText, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,12 +16,17 @@ const requestTypes = [
   { value: "feedback", label: "General Feedback" },
 ]
 
+type FileWithId = {
+  id: string
+  file: File
+}
+
 type FormState = {
   title: string
   organization: string
   requestType: string
   message: string
-  file: File | null
+  files: FileWithId[]
 }
 
 const initialState: FormState = {
@@ -29,8 +34,11 @@ const initialState: FormState = {
   organization: "",
   requestType: "",
   message: "",
-  file: null,
+  files: [],
 }
+
+const MAX_FILES = 5
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 export function ContributeRequestForm() {
   const [form, setForm] = useState<FormState>(initialState)
@@ -45,10 +53,14 @@ export function ContributeRequestForm() {
       const storedToken = window.localStorage.getItem("authToken")
       const storedUser = window.localStorage.getItem("userData")
       
+      console.log("Token check:", storedToken ? "Token found" : "No token")
+      
       if (storedToken) setToken(storedToken)
       if (storedUser) {
         try {
-          setUserData(JSON.parse(storedUser))
+          const parsed = JSON.parse(storedUser)
+          console.log("User data:", parsed)
+          setUserData(parsed)
         } catch (e) {
           console.error("Error parsing user data:", e)
         }
@@ -58,51 +70,90 @@ export function ContributeRequestForm() {
 
   const canSubmit = useMemo(() => Boolean(token), [token])
 
-  const handleChange = (field: keyof Omit<FormState, 'file'>) => (
+  const handleChange = (field: keyof Omit<FormState, 'files'>) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }))
   }
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null
-    
-    if (file) {
-      // Validate file size (10MB to match Laravel validation)
-      const maxSize = 10 * 1024 * 1024 // 10MB in bytes
-      if (file.size > maxSize) {
-        setError("File size must be less than 10MB")
-        event.target.value = "" // Reset input
-        return
-      }
-      
-      // Validate file type (match Laravel validation: xlsx, xls, csv)
-      const allowedTypes = [
-        'application/vnd.ms-excel', // .xls
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'text/csv', // .csv
-      ]
-      
-      const allowedExtensions = ['xls', 'xlsx', 'csv']
-      const fileExtension = file.name.split('.').pop()?.toLowerCase()
-      
-      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension || '')) {
-        setError("Invalid file type. Only Excel (.xlsx, .xls) and CSV (.csv) files are allowed.")
-        event.target.value = "" // Reset input
-        return
-      }
-      
-      setError(null)
+  const validateFile = (file: File): string | null => {
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      return `${file.name}: File size must be less than 10MB`
     }
     
-    setForm((prev) => ({ ...prev, file }))
+    // Validate file type
+    const allowedTypes = [
+      'application/vnd.ms-excel', // .xls
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+      'text/csv', // .csv
+    ]
+    
+    const allowedExtensions = ['xls', 'xlsx', 'csv']
+    const fileExtension = file.name.split('.').pop()?.toLowerCase()
+    
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension || '')) {
+      return `${file.name}: Invalid file type. Only Excel (.xlsx, .xls) and CSV files are allowed`
+    }
+    
+    return null
   }
 
-  const removeFile = () => {
-    setForm((prev) => ({ ...prev, file: null }))
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files
+    if (!selectedFiles || selectedFiles.length === 0) return
+
+    const currentFilesCount = form.files.length
+    const newFilesCount = selectedFiles.length
+    
+    // Check if adding these files would exceed the limit
+    if (currentFilesCount + newFilesCount > MAX_FILES) {
+      setError(`You can only upload up to ${MAX_FILES} files. Currently you have ${currentFilesCount} file(s).`)
+      event.target.value = ""
+      return
+    }
+
+    // Validate each file
+    const newFiles: FileWithId[] = []
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const file = selectedFiles[i]
+      const validationError = validateFile(file)
+      
+      if (validationError) {
+        setError(validationError)
+        event.target.value = ""
+        return
+      }
+      
+      // Check for duplicate filenames
+      const isDuplicate = form.files.some(f => f.file.name === file.name)
+      if (isDuplicate) {
+        setError(`File "${file.name}" is already added`)
+        event.target.value = ""
+        return
+      }
+      
+      newFiles.push({
+        id: `${Date.now()}-${i}`,
+        file: file
+      })
+    }
+    
+    setError(null)
+    setForm((prev) => ({
+      ...prev,
+      files: [...prev.files, ...newFiles]
+    }))
+    
     // Reset file input
-    const fileInput = document.getElementById('file') as HTMLInputElement
-    if (fileInput) fileInput.value = ""
+    event.target.value = ""
+  }
+
+  const removeFile = (fileId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      files: prev.files.filter(f => f.id !== fileId)
+    }))
   }
 
   const formatFileSize = (bytes: number): string => {
@@ -113,11 +164,19 @@ export function ContributeRequestForm() {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
   }
 
+  const getTotalSize = (): string => {
+    const total = form.files.reduce((sum, f) => sum + f.file.size, 0)
+    return formatFileSize(total)
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!canSubmit) return
+    if (!canSubmit) {
+      setError("You must be logged in to submit a contribution.")
+      return
+    }
 
-    const { title, organization, requestType, message, file } = form
+    const { title, organization, requestType, message, files } = form
     
     // Validate required fields
     if (!title.trim()) {
@@ -142,6 +201,9 @@ export function ContributeRequestForm() {
     setIsSubmitting(true)
 
     try {
+      console.log("Submitting with token:", token ? "Present" : "Missing")
+      console.log("Files count:", files.length)
+      
       // Create FormData for file upload
       const formData = new FormData()
       formData.append('title', title.trim())
@@ -149,19 +211,24 @@ export function ContributeRequestForm() {
       formData.append('request_type', requestType.trim())
       formData.append('message', message.trim())
       
-      // Add file if provided
-      if (file) {
-        formData.append('file', file)
+      // Add all files with the key 'files[]'
+      files.forEach((fileWithId, index) => {
+        console.log(`Adding file ${index + 1}:`, fileWithId.file.name)
+        formData.append('files[]', fileWithId.file)
+      })
+
+      // Debug: Log FormData contents
+      console.log("FormData contents:")
+      for (let pair of formData.entries()) {
+        console.log(pair[0], typeof pair[1] === 'object' ? '(File)' : pair[1])
       }
 
-      await submitContribution(formData, token || undefined)
+      const result = await submitContribution(formData, token || undefined)
       
-      setSuccess("Contribution submitted successfully! Your submission is pending admin review.")
+      console.log("Submit success:", result)
+      
+      setSuccess(`Contribution submitted successfully with ${files.length} file(s)! Your submission is pending admin review.`)
       setForm(initialState)
-      
-      // Reset file input
-      const fileInput = document.getElementById('file') as HTMLInputElement
-      if (fileInput) fileInput.value = ""
       
       // Auto-hide success message after 5 seconds
       setTimeout(() => {
@@ -169,7 +236,27 @@ export function ContributeRequestForm() {
       }, 5000)
       
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Submission failed. Please try again."
+      console.error("Submit error:", err)
+      
+      let message = "Submission failed. Please try again."
+      
+      if (err instanceof Error) {
+        message = err.message
+        
+        // Check for specific authentication errors
+        if (message.toLowerCase().includes("unauthenticated") || 
+            message.toLowerCase().includes("unauthorized")) {
+          message = "Session expired. Please log in again."
+          // Clear token
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem("authToken")
+            window.localStorage.removeItem("userData")
+          }
+          setToken(null)
+          setUserData(null)
+        }
+      }
+      
       setError(message)
     } finally {
       setIsSubmitting(false)
@@ -189,6 +276,7 @@ export function ContributeRequestForm() {
           </div>
         </div>
       )}
+      
       
       {/* Two Column Layout */}
       <div className="grid gap-6 md:grid-cols-2">
@@ -220,72 +308,107 @@ export function ContributeRequestForm() {
         </div>
       </div>
 
-      {/* Two Column Layout - Request Type and File Upload */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="type">Request Type *</Label>
-          <select
-            id="type"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            value={form.requestType}
-            onChange={handleChange("requestType")}
-            disabled={!canSubmit}
-            required
-          >
-            <option value="">Select a type</option>
-            {requestTypes.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* Request Type */}
+      <div className="space-y-2">
+        <Label htmlFor="type">Request Type *</Label>
+        <select
+          id="type"
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          value={form.requestType}
+          onChange={handleChange("requestType")}
+          disabled={!canSubmit}
+          required
+        >
+          <option value="">Select a type</option>
+          {requestTypes.map((item) => (
+            <option key={item.value} value={item.value}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="file">
-            Upload File (Optional)
-            <span className="ml-2 text-xs text-muted-foreground">(Max 10MB)</span>
+      {/* Multiple File Upload Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="files">
+            Upload Files (Optional)
+            <span className="ml-2 text-xs text-muted-foreground">
+              (Max {MAX_FILES} files, 10MB each)
+            </span>
           </Label>
-          
-          {!form.file ? (
-            <div className="relative">
-              <Input
-                id="file"
-                type="file"
-                onChange={handleFileChange}
-                disabled={!canSubmit}
-                className="cursor-pointer file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary/90"
-                accept=".xlsx,.xls,.csv"
-              />
-              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
-                <Upload className="h-4 w-4" />
-                <span>Excel (.xlsx, .xls) and CSV (.csv)</span>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between rounded-md border border-input bg-background p-3">
-              <div className="flex items-center gap-3">
-                <div className="rounded-md bg-primary/10 p-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-foreground">{form.file.name}</span>
-                  <span className="text-xs text-muted-foreground">{formatFileSize(form.file.size)}</span>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={removeFile}
-                disabled={!canSubmit}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+          {form.files.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {form.files.length} of {MAX_FILES} files • Total: {getTotalSize()}
+            </span>
           )}
         </div>
+
+        {/* File Input - Only show if under limit */}
+        {form.files.length < MAX_FILES && (
+          <div className="relative">
+            <Input
+              id="files"
+              type="file"
+              onChange={handleFileChange}
+              disabled={!canSubmit}
+              multiple
+              className="cursor-pointer file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-foreground hover:file:bg-primary/90"
+              accept=".xlsx,.xls,.csv"
+            />
+            <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+              <Upload className="h-4 w-4" />
+              <span>Excel (.xlsx, .xls) and CSV (.csv) files only</span>
+            </div>
+          </div>
+        )}
+
+        {/* File limit warning */}
+        {form.files.length >= MAX_FILES && (
+          <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <AlertCircle className="h-4 w-4" />
+            <span>Maximum file limit reached ({MAX_FILES} files)</span>
+          </div>
+        )}
+
+        {/* Files List */}
+        {form.files.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Selected Files:</p>
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+              {form.files.map((fileWithId) => (
+                <div
+                  key={fileWithId.id}
+                  className="flex items-center justify-between rounded-md border border-input bg-background p-3 transition-colors hover:bg-accent"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="rounded-md bg-primary/10 p-2 flex-shrink-0">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-sm font-medium text-foreground truncate">
+                        {fileWithId.file.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatFileSize(fileWithId.file.size)} • {fileWithId.file.type.split('/').pop()?.toUpperCase() || 'FILE'}
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeFile(fileWithId.id)}
+                    disabled={!canSubmit || isSubmitting}
+                    className="h-8 w-8 p-0 flex-shrink-0 ml-2"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Message at the bottom - Full Width */}
@@ -324,7 +447,7 @@ export function ContributeRequestForm() {
           ) : (
             <span className="inline-flex items-center gap-2">
               <Send className="h-4 w-4" />
-              Submit Request
+              Submit Request {form.files.length > 0 && `(${form.files.length} file${form.files.length > 1 ? 's' : ''})`}
             </span>
           )
         ) : (
