@@ -111,7 +111,8 @@ export default function DashboardPage() {
         name: file.original_name,
         size: file.formatted_size,
         type: file.file_type,
-        uploadedAt: contrib.created_at
+        uploadedAt: contrib.created_at,
+        file_path: file.file_path
       }));
     } 
     // Fallback to old file_path for backward compatibility

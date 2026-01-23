@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { fetchSingleApprovedContribution, fetchFileData, type ApprovedContribution, type FileData } from "@/lib/api"
+import { downloadFile, downloadMultipleFiles } from "@/lib/downloadUtils"
 import {
   ArrowLeft,
   Download,
@@ -23,6 +24,7 @@ import {
   CheckCircle,
   BarChart3,
   Files,
+  Package,
 } from "lucide-react"
 import Link from "next/link"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
@@ -49,6 +51,8 @@ export default function DatasetDetailPage() {
   const [chartError, setChartError] = useState<string | null>(null)
   const [showChart, setShowChart] = useState(false)
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null)
+  const [downloadingFileId, setDownloadingFileId] = useState<number | null>(null)
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false)
 
   useEffect(() => {
     const loadDataset = async () => {
@@ -78,7 +82,6 @@ export default function DatasetDetailPage() {
       
       console.log('Fetching chart data for contribution ID:', id, 'File ID:', fileId)
       
-      // If fileId is provided, fetch that specific file's data
       const data = fileId 
         ? await fetchFileData(id, fileId.toString())
         : await fetchFileData(id)
@@ -98,23 +101,56 @@ export default function DatasetDetailPage() {
     }
   }
 
+  const handleDownloadFile = async (file: ContributionFile) => {
+    setDownloadingFileId(file.id)
+    try {
+      await downloadFile(file.file_path, file.original_name)
+    } catch (error) {
+      console.error('Failed to download file:', error)
+      alert('Failed to download file. Please try again.')
+    } finally {
+      setDownloadingFileId(null)
+    }
+  }
+
+  const handleDownloadAll = async () => {
+    if (!dataset?.files || dataset.files.length === 0) return
+    
+    setIsDownloadingAll(true)
+    try {
+      const filesForDownload = dataset.files.map(f => ({
+        file_path: f.file_path,
+        original_name: f.original_name
+      }))
+      
+      const zipName = `${dataset.title.replace(/[^a-z0-9]/gi, '_')}_files.zip`
+      await downloadMultipleFiles(filesForDownload, zipName)
+    } catch (error) {
+      console.error('Failed to download all files:', error)
+      alert('Failed to download files. Please try again.')
+    } finally {
+      setIsDownloadingAll(false)
+    }
+  }
+
+  const handleDownloadSingleFile = async () => {
+    if (!dataset?.file_path) return
+    
+    setDownloadingFileId(-1)
+    try {
+      const fileName = dataset.file_path.split("/").pop()?.replace(/^[\d_]+/, '') || "file"
+      await downloadFile(dataset.file_path, fileName)
+    } catch (error) {
+      console.error('Failed to download file:', error)
+      alert('Failed to download file. Please try again.')
+    } finally {
+      setDownloadingFileId(null)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-  }
-
-  const handleDownload = (filePath: string, fileName: string) => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"
-    const fileUrl = `${baseUrl}/storage/${filePath}`
-    
-    // Create a temporary anchor element to trigger download
-    const link = document.createElement('a')
-    link.href = fileUrl
-    link.download = fileName
-    link.target = '_blank'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
 
   const formatFileSize = (bytes: number): string => {
@@ -132,20 +168,17 @@ export default function DatasetDetailPage() {
     return '📄'
   }
 
-  // Auto-detect best chart type and prepare data
   const getChartConfig = () => {
     if (!fileData?.rows || fileData.rows.length === 0) return null
 
     const headers = fileData.headers
     const rows = fileData.rows
 
-    // Find numeric columns
     const numericColumns = headers.filter((header) => {
       const firstValue = rows[0]?.[header]
       return typeof firstValue === "number"
     })
 
-    // Find text/categorical columns (potential x-axis)
     const categoricalColumns = headers.filter((header) => {
       const firstValue = rows[0]?.[header]
       return typeof firstValue === "string" && firstValue !== null && firstValue !== ""
@@ -154,7 +187,6 @@ export default function DatasetDetailPage() {
     const xAxisKey = categoricalColumns[0] || headers[0]
     const yAxisKeys = numericColumns.length > 0 ? numericColumns : headers.slice(1)
 
-    // Prepare data - filter out empty rows and limit to 50 points
     const chartData = rows
       .filter((row) => {
         return Object.values(row).some(val => val !== null && val !== "" && val !== undefined)
@@ -183,7 +215,6 @@ export default function DatasetDetailPage() {
     "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#a855f7",
   ]
 
-  // Check if dataset has multiple files
   const hasMultipleFiles = dataset?.files && Array.isArray(dataset.files) && dataset.files.length > 0
   const filesCount = hasMultipleFiles ? dataset.files.length : (dataset?.file_path ? 1 : 0)
 
@@ -380,14 +411,36 @@ export default function DatasetDetailPage() {
                 {hasMultipleFiles ? (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Files className="h-5 w-5" />
-                        Resource Files ({dataset.files.length})
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <Files className="h-5 w-5" />
+                          Resource Files ({dataset.files.length})
+                        </CardTitle>
+                        {dataset.files.length > 1 && (
+                          <Button
+                            onClick={handleDownloadAll}
+                            disabled={isDownloadingAll}
+                            className="gap-2"
+                            size="sm"
+                          >
+                            {isDownloadingAll ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Package className="h-4 w-4" />
+                                Download All
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {dataset.files.map((file: ContributionFile, index: number) => (
+                        {dataset.files.map((file: ContributionFile) => (
                           <div
                             key={file.id}
                             className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
@@ -423,10 +476,20 @@ export default function DatasetDetailPage() {
                               <Button
                                 size="sm"
                                 className="gap-1"
-                                onClick={() => handleDownload(file.file_path, file.original_name)}
+                                onClick={() => handleDownloadFile(file)}
+                                disabled={downloadingFileId === file.id}
                               >
-                                <Download className="h-4 w-4" />
-                                Download
+                                {downloadingFileId === file.id ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Downloading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="h-4 w-4" />
+                                    Download
+                                  </>
+                                )}
                               </Button>
                             </div>
                           </div>
@@ -479,10 +542,20 @@ export default function DatasetDetailPage() {
                           <Button
                             size="sm"
                             className="gap-1"
-                            onClick={() => handleDownload(dataset.file_path, dataset.file_path.split("/").pop() || "file")}
+                            onClick={handleDownloadSingleFile}
+                            disabled={downloadingFileId === -1}
                           >
-                            <Download className="h-4 w-4" />
-                            Download
+                            {downloadingFileId === -1 ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4" />
+                                Download
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
@@ -535,7 +608,6 @@ export default function DatasetDetailPage() {
 
               {/* Sidebar */}
               <div className="space-y-6">
-                {/* Metadata */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Dataset Information</CardTitle>

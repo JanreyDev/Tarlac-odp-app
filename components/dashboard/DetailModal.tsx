@@ -2,9 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { fetchCategories, fetchTags } from '@/lib/api';
 import type { Category } from '@/lib/api';
+import { downloadFile, downloadMultipleFiles } from '@/lib/downloadUtils';
 
 import { ConfirmationDialog } from './ConfirmationDialog';
-import { FolderOpen, Tag, AlertCircle, Check, ChevronDown } from 'lucide-react';
+import { FolderOpen, Tag, AlertCircle, Check, ChevronDown, Download, Package, Loader2 } from 'lucide-react';
 import { TagInput } from './TagInput';
 
 
@@ -14,6 +15,7 @@ interface UploadedFile {
   size: string;
   type: string;
   uploadedAt: string;
+  file_path?: string; // Add this for the actual file path
 }
 
 interface Submission {
@@ -59,6 +61,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const [confirmationType, setConfirmationType] = useState<'approve' | 'reject' | 'pending' | 'save'>('save');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
 
   // Fetch categories and tags on mount
   useEffect(() => {
@@ -105,6 +109,38 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   }, [editedSubmission, originalSubmission]);
 
   if (!isOpen) return null;
+
+  const handleDownloadFile = async (file: UploadedFile) => {
+    setDownloadingFileId(file.id);
+    try {
+      // Use file_path if available, otherwise construct from name
+      const filePath = file.file_path || `uploads/${file.name}`;
+      await downloadFile(filePath, file.name);
+    } catch (error) {
+      console.error('Failed to download file:', error);
+      alert('Failed to download file. Please try again.');
+    } finally {
+      setDownloadingFileId(null);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    setIsDownloadingAll(true);
+    try {
+      const filesForDownload = editedSubmission.uploadedFiles.map(f => ({
+        file_path: f.file_path || `uploads/${f.name}`,
+        original_name: f.name
+      }));
+      
+      const zipName = `${editedSubmission.title.replace(/[^a-z0-9]/gi, '_')}_files.zip`;
+      await downloadMultipleFiles(filesForDownload, zipName);
+    } catch (error) {
+      console.error('Failed to download all files:', error);
+      alert('Failed to download files. Please try again.');
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
 
   const getConfirmationConfig = () => {
     const statusChanged = editedSubmission.status !== originalSubmission.status;
@@ -180,7 +216,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
 
   const getFileIcon = (type: string) => {
     if (type.includes('pdf')) return '📄';
-    if (type.includes('excel') || type.includes('csv')) return '📊';
+    if (type.includes('excel') || type.includes('csv') || type.includes('xlsx') || type.includes('xls')) return '📊';
     if (type.includes('word') || type.includes('docx')) return '📝';
     if (type.includes('zip')) return '🗜️';
     if (type.includes('image')) return '🖼️';
@@ -355,9 +391,30 @@ export const DetailModal: React.FC<DetailModalProps> = ({
               {/* Uploaded Files */}
               {editedSubmission.uploadedFiles.length > 0 && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-3">
-                    Attached Files ({editedSubmission.uploadedFiles.length})
-                  </label>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-semibold text-gray-900">
+                      Attached Files ({editedSubmission.uploadedFiles.length})
+                    </label>
+                    {editedSubmission.uploadedFiles.length > 1 && (
+                      <button
+                        onClick={handleDownloadAll}
+                        disabled={isDownloadingAll}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isDownloadingAll ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Downloading...
+                          </>
+                        ) : (
+                          <>
+                            <Package className="h-4 w-4" />
+                            Download All
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
                     {editedSubmission.uploadedFiles.map((file) => (
                       <div
@@ -373,8 +430,22 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                             </p>
                           </div>
                         </div>
-                        <button className="text-green-600 hover:text-green-700 text-sm font-medium">
-                          Download
+                        <button
+                          onClick={() => handleDownloadFile(file)}
+                          disabled={downloadingFileId === file.id}
+                          className="flex items-center gap-2 text-green-600 hover:text-green-700 text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {downloadingFileId === file.id ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Downloading...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" />
+                              Download
+                            </>
+                          )}
                         </button>
                       </div>
                     ))}
@@ -389,7 +460,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 </h3>
               </div>
 
-              {/* Categories Dropdown - NEW */}
+              {/* Categories Dropdown */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
                   <div className="flex items-center gap-2">
@@ -398,7 +469,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                   </div>
                 </label>
                 
-                {/* Selected Categories Display */}
                 {editedSubmission.categories.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
                     {editedSubmission.categories.map((categoryName) => {
@@ -408,11 +478,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                           key={categoryName}
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-green-100 text-green-800 border border-green-200"
                         >
-                          {category && (
-                            <span className="text-base">
-                              {/* Render icon dynamically */}
-                            </span>
-                          )}
                           {categoryName}
                           <button
                             type="button"
@@ -427,7 +492,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                   </div>
                 )}
 
-                {/* Dropdown Button */}
                 <div className="relative">
                   <button
                     type="button"
@@ -442,7 +506,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                     <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
                   </button>
 
-                  {/* Dropdown Menu */}
                   {showCategoryDropdown && (
                     <div className="absolute z-10 w-full mt-2 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                       {isLoadingOptions ? (
@@ -497,7 +560,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 </p>
               </div>
 
-              {/* Tags Input - Keep as free-form */}
+              {/* Tags Input */}
               {isLoadingOptions ? (
                 <div className="text-sm text-gray-500">Loading tags...</div>
               ) : (
