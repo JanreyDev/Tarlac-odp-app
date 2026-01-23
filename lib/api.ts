@@ -41,28 +41,54 @@ async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
   // Detect if body is FormData
   const isFormData = body instanceof FormData
 
-  const response = await fetch(`${defaultBase}${path}`, {
-    ...rest,
-    headers: {
-      Accept: "application/json",
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...headers,
-    },
-    body,
-    cache: "no-store",
-  })
+  try {
+    const response = await fetch(`${defaultBase}${path}`, {
+      ...rest,
+      headers: {
+        Accept: "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...headers,
+      },
+      body,
+      cache: "no-store",
+    })
 
-  const contentType = response.headers.get("content-type") || ""
-  const data = contentType.includes("application/json") ? await response.json() : await response.text()
+    const contentType = response.headers.get("content-type") || ""
+    const data = contentType.includes("application/json") ? await response.json() : await response.text()
 
-  if (!response.ok) {
-    const message = typeof data === "string" ? data : data?.message || "Unable to reach the API"
-    const error = new Error(message) as ApiError
-    error.status = response.status
-    throw error
+    if (!response.ok) {
+      // Better error message extraction
+      let message = "An error occurred"
+      
+      if (typeof data === "object" && data !== null) {
+        // Check for common error message fields
+        message = data.error || data.message || data.errors || "Request failed"
+        
+        // If errors is an object (validation errors), format it
+        if (typeof message === "object") {
+          const errorMessages = Object.values(message).flat()
+          message = errorMessages.join(", ")
+        }
+      } else if (typeof data === "string") {
+        message = data
+      }
+
+      const error = new Error(message) as ApiError
+      error.status = response.status
+      throw error
+    }
+
+    return data as T
+  } catch (error) {
+    // If it's already an ApiError, rethrow it
+    if (error instanceof Error && 'status' in error) {
+      throw error
+    }
+    
+    // Network error or other fetch errors
+    const apiError = new Error("Unable to reach the API. Please check your connection.") as ApiError
+    throw apiError
   }
-
-  return data as T
 }
 
 // 🔐 Auth
@@ -284,8 +310,6 @@ export async function fetchSingleContribution(id: string | number): Promise<Appr
   })
 }
 
-
-
 export async function fetchFileData(contributionId: string, fileId?: string): Promise<FileData> {
   // If fileId is provided, fetch that specific file's data
   const path = fileId 
@@ -297,8 +321,6 @@ export async function fetchFileData(contributionId: string, fileId?: string): Pr
     method: "GET",
   })
 }
-
-
 
 export async function fetchContributorRanking(): Promise<RankingItem[]> {
   const data = await apiFetch<LaravelRankingItem[]>({
