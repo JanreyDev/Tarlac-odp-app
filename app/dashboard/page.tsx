@@ -27,6 +27,15 @@ type LaravelContribution = {
   }
   categories?: Array<{ id: number; name: string }>
   tags?: Array<{ id: number; name: string }>
+  // Add the files array type
+  files?: Array<{
+    id: number
+    original_name: string
+    file_type: string
+    file_size: number
+    formatted_size: string
+    file_path: string
+  }>
 }
 
 type Submission = {
@@ -86,6 +95,36 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const convertToSubmission = (contrib: LaravelContribution): Submission => {
+    // FIXED: Map the files array from backend
+    let uploadedFiles: Array<{
+      id: string
+      name: string
+      size: string
+      type: string
+      uploadedAt: string
+    }> = [];
+
+    // Check if files array exists and has items
+    if (contrib.files && contrib.files.length > 0) {
+      uploadedFiles = contrib.files.map(file => ({
+        id: file.id.toString(),
+        name: file.original_name,
+        size: file.formatted_size,
+        type: file.file_type,
+        uploadedAt: contrib.created_at
+      }));
+    } 
+    // Fallback to old file_path for backward compatibility
+    else if (contrib.file_path) {
+      uploadedFiles = [{
+        id: contrib.id.toString(),
+        name: contrib.file_path.split('/').pop() || 'file',
+        size: 'Unknown',
+        type: 'application/octet-stream',
+        uploadedAt: contrib.created_at
+      }];
+    }
+
     return {
       id: contrib.id.toString(),
       title: contrib.title,
@@ -97,13 +136,7 @@ export default function DashboardPage() {
       tags: contrib.tags?.map(t => t.name) || [],
       organization: contrib.organization,
       requestType: contrib.request_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-      uploadedFiles: contrib.file_path ? [{
-        id: contrib.id.toString(),
-        name: contrib.file_path.split('/').pop() || 'file',
-        size: 'Unknown',
-        type: 'application/octet-stream',
-        uploadedAt: contrib.created_at
-      }] : []
+      uploadedFiles: uploadedFiles
     };
   };
 
