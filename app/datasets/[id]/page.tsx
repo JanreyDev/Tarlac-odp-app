@@ -61,6 +61,22 @@ export default function DatasetDetailPage() {
         setError(null)
         const data = await fetchSingleApprovedContribution(id)
         setDataset(data)
+        
+        // Auto-load chart for first file after dataset is loaded
+        if (data) {
+          // Check if there are multiple files
+          if (data.files && Array.isArray(data.files) && data.files.length > 0) {
+            const firstFile = data.files[0]
+            // Only auto-load if it's a visualizable file type
+            if (firstFile.file_type === 'csv' || firstFile.file_type === 'xlsx' || firstFile.file_type === 'xls') {
+              loadChartData(firstFile.id)
+            }
+          } 
+          // Check for single file (backward compatibility)
+          else if (data.file_path) {
+            loadChartData()
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dataset")
         console.error("Error loading dataset:", err)

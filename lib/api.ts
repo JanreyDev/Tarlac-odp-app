@@ -59,11 +59,11 @@ async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
     if (!response.ok) {
       // Better error message extraction
       let message = "An error occurred"
-      
+
       if (typeof data === "object" && data !== null) {
         // Check for common error message fields
         message = data.error || data.message || data.errors || "Request failed"
-        
+
         // If errors is an object (validation errors), format it
         if (typeof message === "object") {
           const errorMessages = Object.values(message).flat()
@@ -84,7 +84,7 @@ async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
     if (error instanceof Error && 'status' in error) {
       throw error
     }
-    
+
     // Network error or other fetch errors
     const apiError = new Error("Unable to reach the API. Please check your connection.") as ApiError
     throw apiError
@@ -121,17 +121,17 @@ export type ContributePayload = {
 
 export async function submitContribution(payload: ContributePayload | FormData, token?: string) {
   const body = payload instanceof FormData ? payload : JSON.stringify(payload)
-  
+
   // Build headers
   const headers: Record<string, string> = {
     Accept: "application/json",
   }
-  
+
   // IMPORTANT: Don't set Content-Type for FormData - browser will set it with boundary
   if (!(payload instanceof FormData)) {
     headers["Content-Type"] = "application/json"
   }
-  
+
   // Add authorization token if provided
   if (token) {
     headers["Authorization"] = `Bearer ${token}`
@@ -145,8 +145,8 @@ export async function submitContribution(payload: ContributePayload | FormData, 
   })
 
   const contentType = response.headers.get("content-type") || ""
-  const data = contentType.includes("application/json") 
-    ? await response.json() 
+  const data = contentType.includes("application/json")
+    ? await response.json()
     : await response.text()
 
   if (!response.ok) {
@@ -200,6 +200,7 @@ type LaravelRankingItem = {
   total: number
   request_types: Record<string, number>
   organization?: string
+  last_title?: string
 }
 
 // Categories
@@ -279,6 +280,14 @@ export type ApprovedContribution = {
     id: number
     name: string
   }>
+  files?: Array<{
+    id: number
+    original_name: string
+    file_type: string
+    file_size: number
+    formatted_size: string
+    file_path: string
+  }>
 }
 
 export type PaginatedResponse<T> = {
@@ -312,10 +321,10 @@ export async function fetchSingleContribution(id: string | number): Promise<Appr
 
 export async function fetchFileData(contributionId: string, fileId?: string): Promise<FileData> {
   // If fileId is provided, fetch that specific file's data
-  const path = fileId 
+  const path = fileId
     ? `/contributes/approved/${contributionId}/data/${fileId}`
     : `/contributes/approved/${contributionId}/data`
-  
+
   return apiFetch<FileData>({
     path,
     method: "GET",
@@ -340,7 +349,7 @@ export async function fetchContributorRanking(): Promise<RankingItem[]> {
       name: item.user?.name ?? `Contributor ${idx + 1}`,
       department: item.organization ?? "—",
       contributions: Number(item.total ?? 0),
-      recent: formattedType ?? "Recent activity",
+      recent: item.last_title || formattedType || "Recent activity",
     }
   })
 }
